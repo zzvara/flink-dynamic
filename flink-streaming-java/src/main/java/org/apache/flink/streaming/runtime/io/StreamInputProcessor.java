@@ -37,6 +37,7 @@ import org.apache.flink.runtime.io.network.partition.consumer.BufferOrEvent;
 import org.apache.flink.runtime.io.network.partition.consumer.InputGate;
 import org.apache.flink.runtime.plugable.DeserializationDelegate;
 import org.apache.flink.runtime.plugable.NonReusingDeserializationDelegate;
+import org.apache.flink.runtime.repartitioning.FlinkTaskContext;
 import org.apache.flink.runtime.util.event.EventListener;
 import org.apache.flink.streaming.api.CheckpointingMode;
 import org.apache.flink.streaming.api.operators.OneInputStreamOperator;
@@ -83,17 +84,21 @@ public class StreamInputProcessor<IN> {
 
 	private Counter numRecordsIn;
 
+	private final FlinkTaskContext taskContext;
+
 	@SuppressWarnings("unchecked")
 	public StreamInputProcessor(InputGate[] inputGates, TypeSerializer<IN> inputSerializer,
 								EventListener<CheckpointBarrier> checkpointListener,
 								CheckpointingMode checkpointMode,
 								IOManager ioManager,
-								boolean enableWatermarkMultiplexing) throws IOException {
+								boolean enableWatermarkMultiplexing,
+								FlinkTaskContext taskContext) throws IOException {
+		this.taskContext = taskContext;
 
 		InputGate inputGate = InputGateUtil.createInputGate(inputGates);
 
 		if (checkpointMode == CheckpointingMode.EXACTLY_ONCE) {
-			this.barrierHandler = new BarrierBuffer(inputGate, ioManager);
+			this.barrierHandler = new BarrierBuffer(inputGate, ioManager, taskContext.redistributeStateHandler());
 		}
 		else if (checkpointMode == CheckpointingMode.AT_LEAST_ONCE) {
 			this.barrierHandler = new BarrierTracker(inputGate);
@@ -171,6 +176,7 @@ public class StreamInputProcessor<IN> {
 						// now we can do the actual processing
 						StreamRecord<IN> record = recordOrWatermark.asRecord();
 						synchronized (lock) {
+							// todo add key distribution statistics here later
 							numRecordsIn.inc();
 							streamOperator.setKeyContextElement1(record);
 							streamOperator.processElement(record);

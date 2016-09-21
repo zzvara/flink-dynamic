@@ -49,6 +49,7 @@ import org.apache.flink.streaming.api.transformations.StreamTransformation;
 import org.apache.flink.streaming.runtime.partitioner.ForwardPartitioner;
 import org.apache.flink.streaming.runtime.partitioner.RescalePartitioner;
 import org.apache.flink.streaming.runtime.partitioner.StreamPartitioner;
+import org.apache.flink.streaming.runtime.partitioner.ToOtherSubtasksInVertexPartitioner;
 import org.apache.flink.streaming.runtime.tasks.StreamIterationHead;
 import org.apache.flink.streaming.runtime.tasks.StreamIterationTail;
 
@@ -156,7 +157,20 @@ public class StreamingJobGraphGenerator {
 			int vertex = inEdges.getKey();
 			List<StreamEdge> edgeList = inEdges.getValue();
 
-			vertexConfigs.get(vertex).setInPhysicalEdges(edgeList);
+			StreamConfig vertexConfig = vertexConfigs.get(vertex);
+
+			// todo set self loop on hashpartitioned
+//			if (vertexConfig.getStatePartitioner(0, ClassLoader.getSystemClassLoader()) != null) {
+//				// there is state partitioning, therefore there is state to repartition
+//				// connecting the vertices to themselves
+//				StreamNode targetVertex = edgeList.get(0).getTargetVertex();
+//				StreamEdge selfEdge = new StreamEdge(targetVertex, targetVertex, 0,
+//					new ArrayList<String>(0), new ToOtherSubtasksInVertexPartitioner());
+//
+//				edgeList.add(selfEdge);
+//			}
+
+            vertexConfig.setInPhysicalEdges(edgeList);
 		}
 	}
 

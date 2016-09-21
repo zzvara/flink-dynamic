@@ -152,7 +152,9 @@ object AkkaUtils {
 
     val logLifecycleEvents = if (lifecycleEvents) "on" else "off"
 
-    val logLevel = getLogLevel
+    val logLevel = "DEBUG"//getLogLevel
+
+    val stdoutLoglevel = "DEBUG"//getLogLevel
 
     val config =
       s"""
@@ -168,7 +170,7 @@ object AkkaUtils {
         | serialize-messages = off
         |
         | loglevel = $logLevel
-        | stdout-loglevel = OFF
+        | stdout-loglevel = $stdoutLoglevel
         |
         | log-dead-letters = $logLifecycleEvents
         | log-dead-letters-during-shutdown = $logLifecycleEvents

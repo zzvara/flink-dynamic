@@ -116,7 +116,7 @@ public class StreamRecordWriterTest {
 		
 		private FailingWriter(ResultPartitionWriter writer, ChannelSelector<T> channelSelector,
 								long timeout, int flushesBeforeException) {
-			super(writer, channelSelector, timeout);
+			super(writer, channelSelector, timeout, null);
 			this.flushesBeforeException = flushesBeforeException;
 		}
 

@@ -43,6 +43,7 @@ import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.tasks.InputSplitProvider;
 import org.apache.flink.runtime.memory.MemoryManager;
 import org.apache.flink.runtime.metrics.groups.TaskMetricGroup;
+import org.apache.flink.runtime.repartitioning.FlinkTaskContext;
 import org.apache.flink.runtime.state.StateHandle;
 import org.apache.flink.runtime.taskmanager.TaskManagerRuntimeInfo;
 import org.apache.flink.types.Record;
@@ -278,6 +279,11 @@ public class MockEnvironment implements Environment {
 	@Override
 	public AccumulatorRegistry getAccumulatorRegistry() {
 		return this.accumulatorRegistry;
+	}
+
+	@Override
+	public FlinkTaskContext getTaskContext() {
+		return null;
 	}
 
 	@Override

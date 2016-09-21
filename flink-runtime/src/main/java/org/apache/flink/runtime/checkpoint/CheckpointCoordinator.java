@@ -37,11 +37,14 @@ import org.apache.flink.runtime.messages.checkpoint.AcknowledgeCheckpoint;
 import org.apache.flink.runtime.messages.checkpoint.DeclineCheckpoint;
 import org.apache.flink.runtime.messages.checkpoint.NotifyCheckpointComplete;
 import org.apache.flink.runtime.messages.checkpoint.TriggerCheckpoint;
+import org.apache.flink.runtime.repartitioning.FlinkRepartitioningTrackerMaster;
 import org.apache.flink.runtime.state.StateHandle;
 import org.apache.flink.util.SerializedValue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import scala.Function4;
 
+import java.io.Serializable;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -531,10 +534,14 @@ public class CheckpointCoordinator {
 			}
 			// end of lock scope
 
+			// trigger creator that may attach partitioner version to a trigger
+			Function4<JobID, ExecutionAttemptID, Object, Object, Serializable> triggerCreator =
+				FlinkRepartitioningTrackerMaster.checkpointTriggerCreator();
+
 			// send the messages to the tasks that trigger their checkpoint
 			for (int i = 0; i < tasksToTrigger.length; i++) {
 				ExecutionAttemptID id = triggerIDs[i];
-				TriggerCheckpoint message = new TriggerCheckpoint(job, id, checkpointID, timestamp);
+				Serializable message = triggerCreator.apply(job, id, checkpointID, timestamp);
 				tasksToTrigger[i].sendMessageToCurrentExecution(message, id);
 			}
 

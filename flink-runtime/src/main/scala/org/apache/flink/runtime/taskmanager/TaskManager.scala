@@ -35,6 +35,7 @@ import com.codahale.metrics.jvm.{BufferPoolMetricSet, GarbageCollectorMetricSet,
 import com.codahale.metrics.{Gauge, MetricFilter, MetricRegistry}
 import com.fasterxml.jackson.databind.ObjectMapper
 import grizzled.slf4j.Logger
+import org.apache.flink.api.common.typeutils.TypeSerializer
 import org.apache.flink.configuration._
 import org.apache.flink.core.fs.FileSystem
 import org.apache.flink.core.memory.{HeapMemorySegment, HybridMemorySegment, MemorySegmentFactory, MemoryType}
@@ -54,30 +55,35 @@ import org.apache.flink.runtime.instance.{AkkaActorGateway, HardwareDescription,
 import org.apache.flink.runtime.io.disk.iomanager.IOManager.IOMode
 import org.apache.flink.runtime.io.disk.iomanager.{IOManager, IOManagerAsync}
 import org.apache.flink.runtime.io.network.NetworkEnvironment
+import org.apache.flink.runtime.io.network.api.{CheckpointBarrier, CheckpointBarrierWithRepartitioner}
 import org.apache.flink.runtime.io.network.netty.NettyConfig
 import org.apache.flink.runtime.jobgraph.IntermediateDataSetID
 import org.apache.flink.runtime.leaderretrieval.{LeaderRetrievalListener, LeaderRetrievalService}
 import org.apache.flink.runtime.memory.MemoryManager
 import org.apache.flink.runtime.messages.Messages._
 import org.apache.flink.runtime.messages.RegistrationMessages._
-import org.apache.flink.runtime.messages.StackTraceSampleMessages.{ResponseStackTraceSampleFailure, ResponseStackTraceSampleSuccess, SampleTaskStackTrace, StackTraceSampleMessages, TriggerStackTraceSample}
+import org.apache.flink.runtime.messages.StackTraceSampleMessages._
 import org.apache.flink.runtime.messages.TaskManagerMessages._
 import org.apache.flink.runtime.messages.TaskMessages._
 import org.apache.flink.runtime.messages.checkpoint.{AbstractCheckpointMessage, NotifyCheckpointComplete, TriggerCheckpoint}
 import org.apache.flink.runtime.metrics.{MetricRegistry => FlinkMetricRegistry}
 import org.apache.flink.runtime.metrics.groups.TaskManagerMetricGroup
 import org.apache.flink.runtime.process.ProcessReaper
+import org.apache.flink.runtime.repartitioning.FlinkRepartitioningTrackerMaster.TriggerCheckpointWithPartitioner
+import org.apache.flink.runtime.repartitioning._
+import org.apache.flink.runtime.repartitioning.network.RedistributionNetworkEnvironment
 import org.apache.flink.runtime.security.SecurityUtils
 import org.apache.flink.runtime.security.SecurityUtils.FlinkSecuredRunner
 import org.apache.flink.runtime.util._
 import org.apache.flink.runtime.{FlinkActor, LeaderSessionMessageFilter, LogMessages}
-import org.apache.flink.util.{MathUtils, NetUtils}
+import org.apache.flink.util.{InstantiationUtil, MathUtils, NetUtils}
 
 import scala.collection.JavaConverters._
 import scala.concurrent._
 import scala.concurrent.duration._
 import scala.concurrent.forkjoin.ForkJoinPool
 import scala.language.postfixOps
+import scala.reflect.ClassTag
 import scala.util.{Failure, Success}
 
 /**
@@ -134,6 +140,8 @@ class TaskManager(
   with LeaderSessionMessageFilter // Mixin order is important: We want to filter after logging
   with LogMessages // Mixin order is important: first we want to support message logging
   with LeaderRetrievalListener {
+
+  var rtw: Option[FlinkRepartitioningTrackerWorker] = None
 
   override val log = Logger(getClass)
 
@@ -280,16 +288,28 @@ class TaskManager(
       case t: Exception => log.error("MetricRegistry did not shutdown properly.", t)
     }
 
+    // shutdown of repartitioning tracker worker
+    rtw.foreach(_.close())
+
     log.info(s"Task manager ${self.path} is completely shut down.")
   }
+
+  override def handleMessage: Receive = privateHandleMessage
+    // routing messages to rtw, or routing to an empty partial function if
+    // rtw have not yet been initialized
+    .orElse(rtw.map(_.componentReceive).getOrElse(PartialFunction.empty[Any,Unit]))
 
   /**
    * Central handling of actor messages. This method delegates to the more specialized
    * methods for handling certain classes of messages.
    */
-  override def handleMessage: Receive = {
+  private def privateHandleMessage: Receive = {
     // task messages are most common and critical, we handle them first
     case message: TaskMessage => handleTaskMessage(message)
+
+    // messages with checkpoint trigger with attached partitioner
+    case message: TriggerCheckpointWithPartitioner =>
+      handleTriggerCheckpoint(message.trigger, Some(message.partitionerVersion))
 
     // messages for coordinating checkpoints
     case message: AbstractCheckpointMessage => handleCheckpointingMessage(message)
@@ -512,6 +532,33 @@ class TaskManager(
       }
   }
 
+
+  private def handleTriggerCheckpoint(message: TriggerCheckpoint,
+                                      partitionerVersion: Option[Int]): Unit = {
+    val taskExecutionId = message.getTaskExecutionId
+    val checkpointId = message.getCheckpointId
+    val timestamp = message.getTimestamp
+
+    log.debug(s"Receiver TriggerCheckpoint $checkpointId@$timestamp for $taskExecutionId.")
+
+    val barrier = partitionerVersion match {
+      case None => new CheckpointBarrier(checkpointId, timestamp)
+      case Some(version) => {
+        log.info(s"Triggering checkpoint $checkpointId@$timestamp with partitioner version $version")
+//        new CheckpointBarrier(checkpointId, timestamp)
+        // fixme: proper chkpntbarrier serialization
+        new CheckpointBarrierWithRepartitioner(checkpointId, timestamp, version)
+      }
+    }
+
+    val task = runningTasks.get(taskExecutionId)
+    if (task != null) {
+      task.triggerCheckpointBarrier(barrier)
+    } else {
+      log.debug(s"TaskManager received a checkpoint request for unknown task $taskExecutionId.")
+    }
+  }
+
   /**
    * Handler for messages related to checkpoints.
    *
@@ -521,18 +568,7 @@ class TaskManager(
 
     actorMessage match {
       case message: TriggerCheckpoint =>
-        val taskExecutionId = message.getTaskExecutionId
-        val checkpointId = message.getCheckpointId
-        val timestamp = message.getTimestamp
-
-        log.debug(s"Receiver TriggerCheckpoint $checkpointId@$timestamp for $taskExecutionId.")
-
-        val task = runningTasks.get(taskExecutionId)
-        if (task != null) {
-          task.triggerCheckpointBarrier(checkpointId, timestamp)
-        } else {
-          log.debug(s"TaskManager received a checkpoint request for unknown task $taskExecutionId.")
-        }
+        handleTriggerCheckpoint(message, None)
 
       case message: NotifyCheckpointComplete =>
         val taskExecutionId = message.getTaskExecutionId
@@ -923,6 +959,12 @@ class TaskManager(
     currentJobManager = Some(jobManager)
     instanceID = id
 
+    // creating and registering repartitioning tracker worker
+    val serverAddr = network.configuration.nettyConfig.map(_.getServerAddress.getHostName).getOrElse("localhost")
+    rtw = Some(new FlinkRepartitioningTrackerWorker(self, jobManager, id.toString, serverAddr))
+    rtw.get.register()
+    println("registered RT worker")
+
     // start the network stack, now that we have the JobManager actor reference
     try {
       network.associateWithTaskManagerAndJobManager(
@@ -1112,6 +1154,40 @@ class TaskManager(
       
       val taskMetricGroup = taskManagerMetricGroup.addTaskForJob(tdd)
 
+      // -----------------------
+      // Repartition handling
+      // -----------------------
+
+      // checking if stateful task
+      val stateKeySerializer: TypeSerializer[_] =
+        InstantiationUtil.readObjectFromConfig(tdd.getTaskConfiguration, "statekeyser", ClassLoader.getSystemClassLoader)
+      val hasKeyedState = stateKeySerializer != null
+
+      // task context for repartitioning metrics
+      val taskContext = new FlinkTaskContext(
+        tdd.getTaskName,
+        tdd.getIndexInSubtaskGroup,
+        0,
+        tdd.getVertexID.hashCode,
+        0,
+        tdd.getNumberOfSubtasks,
+        hasKeyedState,
+        jobManagerActor,
+        rtw.get.redistNetEnv
+      )
+
+      // registering task at repartitioning tracker
+      rtw
+        .getOrElse(throw new Exception("RT Worker not yet initialized"))
+        .taskArrival(
+          tdd.getIndexInSubtaskGroup,
+          // FIXME Warning! Only the hash of the vertex ID is used here
+          // to conform Spark vertex ID of type Int.
+          // This may lead to conflicting vertex IDs.
+          tdd.getVertexID.hashCode,
+          taskContext
+        )
+
       val task = new Task(
         tdd,
         memoryManager,
@@ -1124,7 +1200,8 @@ class TaskManager(
         libCache,
         fileCache,
         runtimeInfo,
-        taskMetricGroup)
+        taskMetricGroup,
+        taskContext)
 
       log.info(s"Received task ${task.getTaskInfo.getTaskNameWithSubtasks()}")
 

@@ -22,6 +22,7 @@ import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.JobID;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.testutils.OneShotLatch;
+import org.apache.flink.runtime.io.network.api.CheckpointBarrier;
 import org.apache.flink.runtime.metrics.groups.TaskMetricGroup;
 import org.apache.flink.runtime.blob.BlobKey;
 import org.apache.flink.runtime.broadcast.BroadcastVariableManager;
@@ -45,6 +46,7 @@ import org.apache.flink.runtime.memory.MemoryManager;
 
 import org.apache.flink.runtime.state.StateHandle;
 import org.apache.flink.util.SerializedValue;
+import org.apache.zookeeper.Op;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -88,7 +90,7 @@ public class TaskAsyncCallTest {
 			awaitLatch.await();
 			
 			for (int i = 1; i <= NUM_CALLS; i++) {
-				task.triggerCheckpointBarrier(i, 156865867234L);
+				task.triggerCheckpointBarrier(new CheckpointBarrier(i, 156865867234L));
 			}
 			
 			triggerLatch.await();
@@ -118,7 +120,7 @@ public class TaskAsyncCallTest {
 			awaitLatch.await();
 
 			for (int i = 1; i <= NUM_CALLS; i++) {
-				task.triggerCheckpointBarrier(i, 156865867234L);
+				task.triggerCheckpointBarrier(new CheckpointBarrier(i, 156865867234L));
 				task.notifyCheckpointComplete(i);
 			}
 
@@ -174,7 +176,7 @@ public class TaskAsyncCallTest {
 				libCache,
 				mock(FileCache.class),
 				new TaskManagerRuntimeInfo("localhost", new Configuration(), System.getProperty("java.io.tmpdir")),
-				mock(TaskMetricGroup.class));
+				mock(TaskMetricGroup.class), null);
 	}
 	
 	public static class CheckpointsInOrderInvokable extends AbstractInvokable implements StatefulTask<StateHandle<Serializable>> {
@@ -204,9 +206,9 @@ public class TaskAsyncCallTest {
 		public void setInitialState(StateHandle<Serializable> stateHandle) throws Exception {}
 
 		@Override
-		public boolean triggerCheckpoint(long checkpointId, long timestamp) {
+		public boolean triggerCheckpoint(CheckpointBarrier barrier) {
 			lastCheckpointId++;
-			if (checkpointId == lastCheckpointId) {
+			if (barrier.getId() == lastCheckpointId) {
 				if (lastCheckpointId == NUM_CALLS) {
 					triggerLatch.trigger();
 				}

@@ -69,7 +69,7 @@ public class TaskStopTest {
 		task = new Task(tddMock, mock(MemoryManager.class), mock(IOManager.class), mock(NetworkEnvironment.class),
 				mock(BroadcastVariableManager.class), mock(ActorGateway.class), mock(ActorGateway.class),
 				mock(FiniteDuration.class), mock(LibraryCacheManager.class), mock(FileCache.class),
-				mock(TaskManagerRuntimeInfo.class), mock(TaskMetricGroup.class));
+				mock(TaskManagerRuntimeInfo.class), mock(TaskMetricGroup.class), null);
 		Field f = task.getClass().getDeclaredField("invokable");
 		f.setAccessible(true);
 		f.set(task, taskMock);

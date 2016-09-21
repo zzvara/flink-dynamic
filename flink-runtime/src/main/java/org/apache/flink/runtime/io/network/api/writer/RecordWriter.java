@@ -47,7 +47,7 @@ public class RecordWriter<T extends IOReadableWritable> {
 
 	protected final ResultPartitionWriter writer;
 
-	private final ChannelSelector<T> channelSelector;
+	protected final ChannelSelector<T> channelSelector;
 
 	private final int numChannels;
 

@@ -76,7 +76,7 @@ public class BarrierTracker implements CheckpointBarrierHandler {
 			if (next == null) {
 				return null;
 			}
-			else if (next.isBuffer() || next.getEvent().getClass() != CheckpointBarrier.class) {
+			else if (next.isBuffer() || !(next.getEvent() instanceof CheckpointBarrier)) {
 				return next;
 			}
 			else {

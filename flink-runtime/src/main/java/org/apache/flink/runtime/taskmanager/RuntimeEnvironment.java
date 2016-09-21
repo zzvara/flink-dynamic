@@ -36,6 +36,7 @@ import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.tasks.InputSplitProvider;
 import org.apache.flink.runtime.memory.MemoryManager;
 import org.apache.flink.runtime.messages.checkpoint.AcknowledgeCheckpoint;
+import org.apache.flink.runtime.repartitioning.FlinkTaskContext;
 import org.apache.flink.runtime.state.StateHandle;
 import org.apache.flink.util.SerializedValue;
 
@@ -80,29 +81,32 @@ public class RuntimeEnvironment implements Environment {
 
 	private final Task containingTask;
 
+	private final FlinkTaskContext taskContext;
+
 	// ------------------------------------------------------------------------
 
 	public RuntimeEnvironment(
-			JobID jobId,
-			JobVertexID jobVertexId,
-			ExecutionAttemptID executionId,
-			ExecutionConfig executionConfig,
-			TaskInfo taskInfo,
-			Configuration jobConfiguration,
-			Configuration taskConfiguration,
-			ClassLoader userCodeClassLoader,
-			MemoryManager memManager,
-			IOManager ioManager,
-			BroadcastVariableManager bcVarManager,
-			AccumulatorRegistry accumulatorRegistry,
-			InputSplitProvider splitProvider,
-			Map<String, Future<Path>> distCacheEntries,
-			ResultPartitionWriter[] writers,
-			InputGate[] inputGates,
-			ActorGateway jobManager,
-			TaskManagerRuntimeInfo taskManagerInfo,
-			TaskMetricGroup metrics,
-			Task containingTask) {
+		JobID jobId,
+		JobVertexID jobVertexId,
+		ExecutionAttemptID executionId,
+		ExecutionConfig executionConfig,
+		TaskInfo taskInfo,
+		Configuration jobConfiguration,
+		Configuration taskConfiguration,
+		ClassLoader userCodeClassLoader,
+		MemoryManager memManager,
+		IOManager ioManager,
+		BroadcastVariableManager bcVarManager,
+		AccumulatorRegistry accumulatorRegistry,
+		InputSplitProvider splitProvider,
+		Map<String, Future<Path>> distCacheEntries,
+		ResultPartitionWriter[] writers,
+		InputGate[] inputGates,
+		ActorGateway jobManager,
+		TaskManagerRuntimeInfo taskManagerInfo,
+		TaskMetricGroup metrics,
+		Task containingTask,
+		FlinkTaskContext taskContext) {
 
 		this.jobId = checkNotNull(jobId);
 		this.jobVertexId = checkNotNull(jobVertexId);
@@ -124,6 +128,7 @@ public class RuntimeEnvironment implements Environment {
 		this.taskManagerInfo = checkNotNull(taskManagerInfo);
 		this.containingTask = containingTask;
 		this.metrics = metrics;
+		this.taskContext = taskContext;
 	}
 
 	// ------------------------------------------------------------------------
@@ -226,6 +231,11 @@ public class RuntimeEnvironment implements Environment {
 	@Override
 	public InputGate[] getAllInputGates() {
 		return inputGates;
+	}
+
+	@Override
+	public FlinkTaskContext getTaskContext() {
+		return taskContext;
 	}
 
 	@Override

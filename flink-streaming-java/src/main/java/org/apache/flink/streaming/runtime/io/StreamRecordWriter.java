@@ -20,10 +20,19 @@ package org.apache.flink.streaming.runtime.io;
 import java.io.IOException;
 
 import org.apache.flink.annotation.Internal;
+import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.core.io.IOReadableWritable;
+import org.apache.flink.runtime.execution.Environment;
 import org.apache.flink.runtime.io.network.api.writer.ChannelSelector;
 import org.apache.flink.runtime.io.network.api.writer.RecordWriter;
 import org.apache.flink.runtime.io.network.api.writer.ResultPartitionWriter;
+import org.apache.flink.runtime.plugable.SerializationDelegate;
+import org.apache.flink.runtime.repartitioning.FlinkTaskMetrics;
+import org.apache.flink.runtime.repartitioning.MaybeBufferingEmitter;
+import org.apache.flink.runtime.repartitioning.RecordEmitter;
+import org.apache.flink.streaming.runtime.partitioner.HashPartitioner;
+import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
+import scala.Tuple2;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 
@@ -48,18 +57,23 @@ public class StreamRecordWriter<T extends IOReadableWritable> extends RecordWrit
 
 	/** The exception encountered in the flushing thread */
 	private Throwable flusherException;
-	
-	
-	
-	public StreamRecordWriter(ResultPartitionWriter writer, ChannelSelector<T> channelSelector, long timeout) {
-		this(writer, channelSelector, timeout, null);
+
+	/** Runtime environment for repartitioning statistics */
+	private final Environment taskEnvironment;
+
+	private final MaybeBufferingEmitter<T> emitter;
+
+	public StreamRecordWriter(ResultPartitionWriter writer, ChannelSelector<T> channelSelector, long timeout,
+							  Environment taskEnvironment) {
+		this(writer, channelSelector, timeout, null, taskEnvironment);
 	}
 	
 	public StreamRecordWriter(ResultPartitionWriter writer, ChannelSelector<T> channelSelector,
-								long timeout, String taskName) {
+							  long timeout, String taskName, Environment taskEnvironment) {
 		
 		super(writer, channelSelector);
-		
+		this.taskEnvironment = taskEnvironment;
+
 		checkArgument(timeout >= -1);
 		
 		if (timeout == -1) {
@@ -78,15 +92,43 @@ public class StreamRecordWriter<T extends IOReadableWritable> extends RecordWrit
 			outputFlusher = new OutputFlusher(threadName, timeout);
 			outputFlusher.start();
 		}
+
+		RecordEmitter<T> defaultEmitter = new RecordEmitter<T>() {
+			@Override
+			public void emit(T record) throws IOException, InterruptedException {
+				privateEmit(record);
+			}
+		};
+		emitter = new MaybeBufferingEmitter<T>(defaultEmitter);
+		taskEnvironment.getTaskContext().registerBufferingStateListener(emitter);
 	}
-	
-	@Override
-	public void emit(T record) throws IOException, InterruptedException {
+
+	private void privateEmit(T record) throws IOException, InterruptedException {
 		checkErroneous();
+
+		// collecting key distribution statistics before emit (for repartitioning)
+		if (channelSelector instanceof HashPartitioner) {
+			KeySelector keySelector = ((HashPartitioner) channelSelector).keySelector;
+			Object recordInside =
+				((StreamRecord) ((SerializationDelegate) record).getInstance()).getValue();
+			try {
+				Object key = keySelector.getKey(recordInside);
+				FlinkTaskMetrics taskMetrics = taskEnvironment.getTaskContext().metrics();
+				taskMetrics.add(new Tuple2<Object, Object>(key, 1.0));
+			} catch (Exception e) {
+				throw new RuntimeException("Could not extract key from " + record, e);
+			}
+		}
+
 		super.emit(record);
 		if (flushAlways) {
 			flush();
 		}
+	}
+
+	@Override
+	public void emit(T record) throws IOException, InterruptedException {
+		emitter.emit(record);
 	}
 
 	@Override

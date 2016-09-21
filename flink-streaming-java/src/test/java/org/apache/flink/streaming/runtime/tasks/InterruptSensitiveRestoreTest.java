@@ -147,7 +147,7 @@ public class InterruptSensitiveRestoreTest {
 				new FileCache(new Configuration()),
 				new TaskManagerRuntimeInfo(
 						"localhost", new Configuration(), EnvironmentInformation.getTemporaryFileDirectory()),
-				new UnregisteredTaskMetricsGroup());
+				new UnregisteredTaskMetricsGroup(), null);
 		
 	}
 

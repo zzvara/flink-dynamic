@@ -25,6 +25,7 @@ import org.apache.flink.api.common.cache.DistributedCache;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.fs.Path;
+import org.apache.flink.runtime.io.network.api.CheckpointBarrier;
 import org.apache.flink.runtime.metrics.groups.TaskMetricGroup;
 import org.apache.flink.runtime.accumulators.AccumulatorRegistry;
 import org.apache.flink.runtime.blob.BlobKey;
@@ -57,6 +58,9 @@ import org.apache.flink.runtime.messages.TaskMessages.FailTask;
 import org.apache.flink.runtime.messages.TaskMessages.TaskInFinalState;
 import org.apache.flink.runtime.messages.TaskMessages.UpdateTaskExecutionState;
 import org.apache.flink.runtime.messages.checkpoint.DeclineCheckpoint;
+import org.apache.flink.runtime.repartitioning.FlinkTaskContext;
+import org.apache.flink.runtime.repartitioning.RedistributeStateHandler;
+import org.apache.flink.runtime.repartitioning.network.StateAccessor;
 import org.apache.flink.runtime.state.StateHandle;
 import org.apache.flink.runtime.state.StateUtils;
 import org.apache.flink.util.SerializedValue;
@@ -150,7 +154,7 @@ public class Task implements Runnable {
 
 	/** Access to task manager configuration and host names*/
 	private final TaskManagerRuntimeInfo taskManagerConfig;
-	
+
 	/** The memory manager to be used by this task */
 	private final MemoryManager memoryManager;
 
@@ -229,6 +233,8 @@ public class Task implements Runnable {
 	/** Initialized from the Flink configuration. May also be set at the ExecutionConfig */
 	private long taskCancellationInterval;
 
+	private final FlinkTaskContext taskContext;
+
 	/**
 	 * <p><b>IMPORTANT:</b> This constructor may not start any work that would need to
 	 * be undone in the case of a failing task deployment.</p>
@@ -244,12 +250,14 @@ public class Task implements Runnable {
 				LibraryCacheManager libraryCache,
 				FileCache fileCache,
 				TaskManagerRuntimeInfo taskManagerConfig,
-				TaskMetricGroup metricGroup)
+				TaskMetricGroup metricGroup,
+				FlinkTaskContext taskContext)
 	{
 		this.taskInfo = checkNotNull(tdd.getTaskInfo());
 		this.jobId = checkNotNull(tdd.getJobID());
 		this.vertexId = checkNotNull(tdd.getVertexID());
 		this.executionId  = checkNotNull(tdd.getExecutionId());
+		this.taskContext = taskContext;
 		this.taskNameWithSubtask = taskInfo.getTaskNameWithSubtasks();
 		this.jobConfiguration = checkNotNull(tdd.getJobConfiguration());
 		this.taskConfiguration = checkNotNull(tdd.getTaskConfiguration());
@@ -316,7 +324,7 @@ public class Task implements Runnable {
 
 		for (int i = 0; i < this.inputGates.length; i++) {
 			SingleInputGate gate = SingleInputGate.create(
-					taskNameWithSubtaskAndId, jobId, executionId, consumedPartitions.get(i), networkEnvironment, 
+					taskNameWithSubtaskAndId, jobId, executionId, consumedPartitions.get(i), networkEnvironment,
 					metricGroup.getIOMetricGroup());
 
 			this.inputGates[i] = gate;
@@ -525,7 +533,7 @@ public class Task implements Runnable {
 					userCodeClassLoader, memoryManager, ioManager,
 					broadcastVariableManager, accumulatorRegistry,
 					splitProvider, distributedCacheEntries,
-					writers, inputGates, jobManager, taskManagerConfig, metrics, this);
+					writers, inputGates, jobManager, taskManagerConfig, metrics, this, taskContext);
 
 			// let the task code create its readers and writers
 			invokable.setEnvironment(env);
@@ -562,6 +570,13 @@ public class Task implements Runnable {
 			// ----------------------------------------------------------------
 			//  actual task core work
 			// ----------------------------------------------------------------
+
+			// Setting state accessor
+			if (this.invokable == null && invokable instanceof StateAccessor) {
+				if (taskContext.redistributeStateHandler().isDefined()) {
+					taskContext.redistributeStateHandler().get().setStateAccessor((StateAccessor) invokable);
+				}
+			}
 
 			// we must make strictly sure that the invokable is accessible to the cancel() call
 			// by the time we switched to running.
@@ -922,10 +937,8 @@ public class Task implements Runnable {
 	 * Calls the invokable to trigger a checkpoint, if the invokable implements the interface
 	 * {@link org.apache.flink.runtime.jobgraph.tasks.StatefulTask}.
 	 * 
-	 * @param checkpointID The ID identifying the checkpoint.
-	 * @param checkpointTimestamp The timestamp associated with the checkpoint.
 	 */
-	public void triggerCheckpointBarrier(final long checkpointID, final long checkpointTimestamp) {
+	public void triggerCheckpointBarrier(final CheckpointBarrier barrier) {
 		AbstractInvokable invokable = this.invokable;
 
 		if (executionState == ExecutionState.RUNNING && invokable != null) {
@@ -939,9 +952,10 @@ public class Task implements Runnable {
 					@Override
 					public void run() {
 						try {
-							boolean success = statefulTask.triggerCheckpoint(checkpointID, checkpointTimestamp);
+							boolean success = statefulTask.triggerCheckpoint(barrier);
 							if (!success) {
-								DeclineCheckpoint decline = new DeclineCheckpoint(jobId, getExecutionId(), checkpointID, checkpointTimestamp);
+								DeclineCheckpoint decline =
+									new DeclineCheckpoint(jobId, getExecutionId(), barrier.getId(), barrier.getTimestamp());
 								jobManager.tell(decline);
 							}
 						}

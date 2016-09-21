@@ -22,8 +22,10 @@ import org.apache.flink.api.common.state.ListState;
 import org.apache.flink.api.common.state.State;
 import org.apache.flink.api.common.state.StateDescriptor;
 import org.apache.flink.api.common.typeutils.TypeSerializer;
+import org.apache.flink.runtime.repartitioning.network.StateAccessor;
 
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
@@ -40,7 +42,7 @@ import static java.util.Objects.requireNonNull;
  * @param <Backend> The type of the backend that snapshots this key/value state.
  */
 public abstract class AbstractHeapState<K, N, SV, S extends State, SD extends StateDescriptor<S, ?>, Backend extends AbstractStateBackend>
-		implements KvState<K, N, S, SD, Backend>, State {
+		implements KvState<K, N, S, SD, Backend>, State, StateAccessor<K, SV> {
 
 	/** Map containing the actual key/value pairs */
 	protected final HashMap<N, Map<K, SV>> state;
@@ -65,6 +67,28 @@ public abstract class AbstractHeapState<K, N, SV, S extends State, SD extends St
 
 	/** Cache the state map for the current key. */
 	protected Map<K, SV> currentNSState;
+
+	private Map.Entry<N, Map<K, SV>> getOrCreateStateMapEntry() {
+		Iterator<Map.Entry<N, Map<K, SV>>> it = this.state.entrySet().iterator();
+		if (it.hasNext()) {
+			return it.next();
+		} else {
+			state.put(currentNamespace, new HashMap<K,SV>());
+			return getOrCreateStateMapEntry();
+		}
+	}
+
+	@Override
+	public Map<K, SV> getState() {
+		return getOrCreateStateMapEntry().getValue();
+	}
+
+	@Override
+	public void setState(Map<K, SV> newState) {
+		Map.Entry<N, Map<K, SV>> entry = getOrCreateStateMapEntry();
+		this.state.put(entry.getKey(), newState);
+		this.currentNSState = null;
+	}
 
 	/**
 	 * Creates a new empty key/value state.

@@ -58,7 +58,7 @@ public class BarrierBufferMassiveRandomTest {
 					new BufferPool[] { pool1, pool2 },
 					new BarrierGenerator[] { new CountBarrier(100000), new RandomBarrier(100000) });
 	
-			BarrierBuffer barrierBuffer = new BarrierBuffer(myIG, ioMan);
+			BarrierBuffer barrierBuffer = new BarrierBuffer(myIG, ioMan, null);
 			
 			for (int i = 0; i < 2000000; i++) {
 				BufferOrEvent boe = barrierBuffer.getNextNonBlocked();

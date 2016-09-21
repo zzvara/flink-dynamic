@@ -68,7 +68,7 @@ public class NetworkEnvironment {
 
 	private final Object lock = new Object();
 
-	private final NetworkEnvironmentConfiguration configuration;
+	public final NetworkEnvironmentConfiguration configuration;
 
 	private final FiniteDuration jobManagerTimeout;
 

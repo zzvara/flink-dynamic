@@ -38,6 +38,7 @@ import org.apache.flink.core.memory.DataInputViewStreamWrapper;
 import org.apache.flink.core.memory.DataOutputView;
 import org.apache.flink.core.memory.DataOutputViewStreamWrapper;
 import org.apache.flink.runtime.execution.Environment;
+import org.apache.flink.runtime.repartitioning.network.StateAccessor;
 
 import java.io.IOException;
 import java.io.OutputStream;
@@ -51,8 +52,8 @@ import java.util.Map;
 /**
  * A state backend defines how state is stored and snapshotted during checkpoints.
  */
-public abstract class AbstractStateBackend implements java.io.Serializable {
-	
+public abstract class AbstractStateBackend implements java.io.Serializable, StateAccessor {
+
 	private static final long serialVersionUID = 4620413814639220247L;
 
 	protected transient TypeSerializer<?> keySerializer;
@@ -72,6 +73,31 @@ public abstract class AbstractStateBackend implements java.io.Serializable {
 
 	@SuppressWarnings("rawtypes")
 	private transient KvState lastState;
+
+	// ------------------------------------------------------------------------
+	//  State holder
+	// ------------------------------------------------------------------------
+
+	private StateAccessor getStateHolder() {
+		Map.Entry<String, KvState<?, ?, ?, ?, ?>> kvStateEntry = keyValueStatesByName.entrySet().iterator().next();
+		KvState<?, ?, ?, ?, ?> kvState = kvStateEntry.getValue();
+		if (kvState instanceof StateAccessor) {
+			return (StateAccessor) kvState;
+		}
+
+		throw new RuntimeException("Cannot get state");
+	}
+
+	@Override
+	public Map getState() {
+		return getStateHolder().getState();
+	}
+
+	@Override
+	public void setState(Map newState) {
+		getStateHolder().setState(newState);
+	}
+
 
 	// ------------------------------------------------------------------------
 	//  initialization and cleanup

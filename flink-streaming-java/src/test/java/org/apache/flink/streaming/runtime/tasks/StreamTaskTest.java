@@ -187,7 +187,9 @@ public class StreamTaskTest {
 				libCache,
 				mock(FileCache.class),
 				new TaskManagerRuntimeInfo("localhost", taskManagerConfig, System.getProperty("java.io.tmpdir")),
-				new UnregisteredTaskMetricsGroup());
+				new UnregisteredTaskMetricsGroup(), null);
+//				new TaskManagerRuntimeInfo("localhost", new Configuration(), System.getProperty("java.io.tmpdir")),
+//				mock(TaskMetricGroup.class), null);
 	}
 	
 	// ------------------------------------------------------------------------

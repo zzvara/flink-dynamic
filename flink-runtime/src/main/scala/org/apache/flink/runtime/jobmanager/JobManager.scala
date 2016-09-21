@@ -19,7 +19,7 @@
 package org.apache.flink.runtime.jobmanager
 
 import java.io.{File, IOException}
-import java.net.{BindException, ServerSocket, UnknownHostException, InetAddress, InetSocketAddress}
+import java.net.{BindException, InetAddress, InetSocketAddress, ServerSocket, UnknownHostException}
 import java.lang.management.ManagementFactory
 import java.util.UUID
 import java.util.concurrent.{ExecutorService, TimeUnit, TimeoutException}
@@ -28,9 +28,8 @@ import javax.management.ObjectName
 import akka.actor.Status.Failure
 import akka.actor._
 import akka.pattern.ask
-
 import grizzled.slf4j.Logger
-
+import hu.sztaki.drc.Mode
 import org.apache.flink.api.common.{ExecutionConfig, JobID}
 import org.apache.flink.configuration.{ConfigConstants, Configuration, GlobalConfiguration}
 import org.apache.flink.core.fs.FileSystem
@@ -41,8 +40,8 @@ import org.apache.flink.runtime.accumulators.AccumulatorSnapshot
 import org.apache.flink.runtime.akka.{AkkaUtils, ListeningBehaviour}
 import org.apache.flink.runtime.blob.BlobServer
 import org.apache.flink.runtime.checkpoint._
-import org.apache.flink.runtime.checkpoint.savepoint.{SavepointStoreFactory, SavepointStore}
-import org.apache.flink.runtime.checkpoint.stats.{CheckpointStatsTracker, SimpleCheckpointStatsTracker, DisabledCheckpointStatsTracker}
+import org.apache.flink.runtime.checkpoint.savepoint.{SavepointStore, SavepointStoreFactory}
+import org.apache.flink.runtime.checkpoint.stats.{CheckpointStatsTracker, DisabledCheckpointStatsTracker, SimpleCheckpointStatsTracker}
 import org.apache.flink.runtime.client._
 import org.apache.flink.runtime.execution.SuppressRestartsException
 import org.apache.flink.runtime.clusterframework.FlinkResourceManager
@@ -58,22 +57,22 @@ import org.apache.flink.runtime.jobgraph.{JobGraph, JobStatus, JobVertexID}
 import org.apache.flink.runtime.jobmanager.SubmittedJobGraphStore.SubmittedJobGraphListener
 import org.apache.flink.runtime.jobmanager.scheduler.{Scheduler => FlinkScheduler}
 import org.apache.flink.runtime.leaderelection.{LeaderContender, LeaderElectionService, StandaloneLeaderElectionService}
-
 import org.apache.flink.runtime.messages.ArchiveMessages.ArchiveExecutionGraph
 import org.apache.flink.runtime.messages.ExecutionGraphMessages.JobStatusChanged
 import org.apache.flink.runtime.messages.JobManagerMessages._
-import org.apache.flink.runtime.messages.Messages.{Disconnect, Acknowledge}
+import org.apache.flink.runtime.messages.Messages.{Acknowledge, Disconnect}
 import org.apache.flink.runtime.messages.RegistrationMessages._
 import org.apache.flink.runtime.messages.TaskManagerMessages.{Heartbeat, SendStackTrace}
 import org.apache.flink.runtime.messages.TaskMessages.{PartitionState, UpdateTaskExecutionState}
 import org.apache.flink.runtime.messages.accumulators.{AccumulatorMessage, AccumulatorResultStringsFound, AccumulatorResultsErroneous, AccumulatorResultsFound, RequestAccumulatorResults, RequestAccumulatorResultsStringified}
-import org.apache.flink.runtime.messages.checkpoint.{DeclineCheckpoint, AbstractCheckpointMessage, AcknowledgeCheckpoint}
-
+import org.apache.flink.runtime.messages.checkpoint.{AbstractCheckpointMessage, AcknowledgeCheckpoint, DeclineCheckpoint}
 import org.apache.flink.runtime.messages.webmonitor.InfoMessage
 import org.apache.flink.runtime.messages.webmonitor._
 import org.apache.flink.runtime.metrics.{MetricRegistry => FlinkMetricRegistry}
 import org.apache.flink.runtime.metrics.groups.JobManagerMetricGroup
 import org.apache.flink.runtime.process.ProcessReaper
+import org.apache.flink.runtime.repartitioning.FlinkNaiveBatchStrategy._
+import org.apache.flink.runtime.repartitioning.{FlinkCallContext, FlinkMessageable, FlinkNaiveBatchStrategy, FlinkRepartitioningTrackerMaster, FlinkThroughput}
 import org.apache.flink.runtime.security.SecurityUtils
 import org.apache.flink.runtime.security.SecurityUtils.FlinkSecuredRunner
 import org.apache.flink.runtime.taskmanager.TaskManager
@@ -81,11 +80,11 @@ import org.apache.flink.runtime.util._
 import org.apache.flink.runtime.webmonitor.{WebMonitor, WebMonitorUtils}
 import org.apache.flink.runtime.{FlinkActor, LeaderSessionMessageFilter, LogMessages}
 import org.apache.flink.util.{InstantiationUtil, NetUtils}
-
 import org.jboss.netty.channel.ChannelException
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
+import scala.collection.immutable.HashMap
 import scala.concurrent._
 import scala.concurrent.duration._
 import scala.concurrent.forkjoin.ForkJoinPool
@@ -138,6 +137,10 @@ class JobManager(
   with LogMessages // mixin order is important, we want first logging
   with LeaderContender
   with SubmittedJobGraphListener {
+
+  var rtm: FlinkRepartitioningTrackerMaster =
+    new FlinkRepartitioningTrackerMaster(self)
+  FlinkRepartitioningTrackerMaster.setInstance(rtm)
 
   override val log = Logger(getClass)
 
@@ -296,12 +299,15 @@ class JobManager(
     log.debug(s"Job manager ${self.path} is completely stopped.")
   }
 
+  override def handleMessage: Receive = privateHandleMessage
+    .orElse(rtm.componentReceiveAndReply(new FlinkCallContext(sender())))
+
   /**
    * Central work method of the JobManager actor. Receives messages and reacts to them.
    *
    * @return
    */
-  override def handleMessage: Receive = {
+  private def privateHandleMessage: Receive = {
 
     case GrantLeadership(newLeaderSessionID) =>
       log.info(s"JobManager $getAddress was granted leadership with leader session ID " +
@@ -1021,6 +1027,7 @@ class JobManager(
       sender() ! ResponseWebMonitorPort(webMonitorPort)
   }
 
+
   /**
     * Handler to be executed when a task manager terminates.
     * (Akka Deathwatch or notifiction from ResourceManager)
@@ -1263,6 +1270,24 @@ class JobManager(
 
           executionGraph.registerExecutionListener(gateway)
           executionGraph.registerJobStatusListener(gateway)
+        }
+
+        // propagating the parallelism of vertices after possible change in parallelism
+        val parallelismByVertex: Map[Int, Int] =
+        (for (vertex <- jobGraph.getVertices.asScala) yield {
+          vertex.getID.hashCode -> vertex.getParallelism
+        }).toMap
+
+        rtm.setVertexParallelisms(parallelismByVertex)
+        // registering JobVertices at RT master
+        for {
+          vertexID <- executionGraph.getAllVertices.asScala.keySet
+        } yield {
+          val stageID = vertexID.hashCode()
+          val jobID = jobId.hashCode()
+          val attemptID = 0
+
+          rtm.whenStageSubmitted(jobID, stageID, attemptID, Mode.ONLY_ONCE)
         }
       } catch {
         case t: Throwable =>

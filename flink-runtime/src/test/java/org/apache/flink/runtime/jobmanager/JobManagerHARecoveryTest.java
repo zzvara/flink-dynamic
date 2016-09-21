@@ -41,6 +41,7 @@ import org.apache.flink.runtime.executiongraph.restart.FixedDelayRestartStrategy
 import org.apache.flink.runtime.instance.ActorGateway;
 import org.apache.flink.runtime.instance.AkkaActorGateway;
 import org.apache.flink.runtime.instance.InstanceManager;
+import org.apache.flink.runtime.io.network.api.CheckpointBarrier;
 import org.apache.flink.runtime.jobgraph.JobGraph;
 import org.apache.flink.runtime.jobgraph.JobStatus;
 import org.apache.flink.runtime.jobgraph.JobVertex;
@@ -443,9 +444,9 @@ public class JobManagerHARecoveryTest {
 		}
 
 		@Override
-		public boolean triggerCheckpoint(long checkpointId, long timestamp) {
-			StateHandle<Long> state = new LocalStateHandle<>(checkpointId);
-			getEnvironment().acknowledgeCheckpoint(checkpointId, state);
+		public boolean triggerCheckpoint(CheckpointBarrier barrier) {
+			StateHandle<Long> state = new LocalStateHandle<>(barrier.getId());
+			getEnvironment().acknowledgeCheckpoint(barrier.getId(), state);
 			return true;
 		}
 

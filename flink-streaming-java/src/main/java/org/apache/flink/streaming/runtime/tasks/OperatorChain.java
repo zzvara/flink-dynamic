@@ -43,6 +43,8 @@ import org.apache.flink.streaming.api.operators.OneInputStreamOperator;
 import org.apache.flink.streaming.api.operators.Output;
 import org.apache.flink.streaming.api.operators.StreamOperator;
 import org.apache.flink.streaming.runtime.io.StreamRecordWriter;
+import org.apache.flink.streaming.runtime.partitioner.ChangingHashPartitioner;
+import org.apache.flink.streaming.runtime.partitioner.HashPartitioner;
 import org.apache.flink.streaming.runtime.partitioner.StreamPartitioner;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 
@@ -124,12 +126,10 @@ public class OperatorChain<OUT> {
 				}
 			}
 		}
-		
 	}
 	
 	
-	public void broadcastCheckpointBarrier(long id, long timestamp) throws IOException, InterruptedException {
-		CheckpointBarrier barrier = new CheckpointBarrier(id, timestamp);
+	public void broadcastCheckpointBarrier(CheckpointBarrier barrier) throws IOException, InterruptedException {
 		for (RecordWriterOutput<?> streamOutput : streamOutputs) {
 			streamOutput.broadcastEvent(barrier);
 		}
@@ -300,8 +300,23 @@ public class OperatorChain<OUT> {
 		
 		ResultPartitionWriter bufferWriter = taskEnvironment.getWriter(outputIndex);
 
+		if (outputPartitioner instanceof HashPartitioner) {
+			int targetParallelism = edge.getTargetVertex().getParallelism();
+			ChangingHashPartitioner<T> changingHashPartitioner = new ChangingHashPartitioner<>(
+				((HashPartitioner<T>) outputPartitioner).keySelector,
+				targetParallelism);
+
+			// giving listener to task context
+			taskEnvironment.getTaskContext().setPartitioningByHash();
+			taskEnvironment.getTaskContext().registerPartitionerChangeListener(
+				changingHashPartitioner);
+
+			// changing the partitioner
+			outputPartitioner = changingHashPartitioner;
+		}
+
 		StreamRecordWriter<SerializationDelegate<StreamRecord<T>>> output = 
-				new StreamRecordWriter<>(bufferWriter, outputPartitioner, upStreamConfig.getBufferTimeout());
+				new StreamRecordWriter<>(bufferWriter, outputPartitioner, upStreamConfig.getBufferTimeout(), taskEnvironment);
 		output.setReporter(reporter);
 		output.setMetricGroup(taskEnvironment.getMetricGroup().getIOMetricGroup());
 		

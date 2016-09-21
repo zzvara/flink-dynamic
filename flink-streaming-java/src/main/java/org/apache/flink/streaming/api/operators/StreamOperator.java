@@ -134,7 +134,10 @@ public interface StreamOperator<OUT> extends Serializable {
 	// ------------------------------------------------------------------------
 	//  miscellaneous
 	// ------------------------------------------------------------------------
-	
+
+	@SuppressWarnings({"unchecked", "rawtypes"})
+	Object getStateKey(StreamRecord record) throws Exception;
+
 	void setKeyContextElement1(StreamRecord<?> record) throws Exception;
 
 	void setKeyContextElement2(StreamRecord<?> record) throws Exception;

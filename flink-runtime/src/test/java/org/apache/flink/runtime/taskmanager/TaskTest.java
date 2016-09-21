@@ -625,7 +625,7 @@ public class TaskTest {
 				libCache,
 				mock(FileCache.class),
 				new TaskManagerRuntimeInfo("localhost", new Configuration(), System.getProperty("java.io.tmpdir")),
-				mock(TaskMetricGroup.class));
+				mock(TaskMetricGroup.class), null);
 	}
 
 	private TaskDeploymentDescriptor createTaskDeploymentDescriptor(Class<? extends AbstractInvokable> invokable) {

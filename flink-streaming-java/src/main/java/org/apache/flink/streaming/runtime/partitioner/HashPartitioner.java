@@ -33,8 +33,8 @@ import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 public class HashPartitioner<T> extends StreamPartitioner<T> {
 	private static final long serialVersionUID = 1L;
 
-	private int[] returnArray = new int[1];
-	KeySelector<T, ?> keySelector;
+	protected int[] returnArray = new int[1];
+	public final KeySelector<T, ?> keySelector;
 
 	public HashPartitioner(KeySelector<T, ?> keySelector) {
 		this.keySelector = keySelector;

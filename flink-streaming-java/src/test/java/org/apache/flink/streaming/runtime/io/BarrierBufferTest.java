@@ -18,7 +18,6 @@
 
 package org.apache.flink.streaming.runtime.io;
 
-import org.apache.flink.core.memory.HeapMemorySegment;
 import org.apache.flink.core.memory.MemorySegmentFactory;
 import org.apache.flink.runtime.io.disk.iomanager.IOManager;
 import org.apache.flink.runtime.io.disk.iomanager.IOManagerAsync;
@@ -81,7 +80,7 @@ public class BarrierBufferTest {
 			};
 
 			MockInputGate gate = new MockInputGate(PAGE_SIZE, 1, Arrays.asList(sequence));
-			BarrierBuffer buffer = new BarrierBuffer(gate, IO_MANAGER);
+			BarrierBuffer buffer = new BarrierBuffer(gate, IO_MANAGER, null);
 
 			for (BufferOrEvent boe : sequence) {
 				assertEquals(boe, buffer.getNextNonBlocked());
@@ -114,7 +113,7 @@ public class BarrierBufferTest {
 			};
 
 			MockInputGate gate = new MockInputGate(PAGE_SIZE, 4, Arrays.asList(sequence));
-			BarrierBuffer buffer = new BarrierBuffer(gate, IO_MANAGER);
+			BarrierBuffer buffer = new BarrierBuffer(gate, IO_MANAGER, null);
 
 			for (BufferOrEvent boe : sequence) {
 				assertEquals(boe, buffer.getNextNonBlocked());
@@ -151,7 +150,7 @@ public class BarrierBufferTest {
 			};
 
 			MockInputGate gate = new MockInputGate(PAGE_SIZE, 1, Arrays.asList(sequence));
-			BarrierBuffer buffer = new BarrierBuffer(gate, IO_MANAGER);
+			BarrierBuffer buffer = new BarrierBuffer(gate, IO_MANAGER, null);
 
 			ValidatingCheckpointHandler handler = new ValidatingCheckpointHandler();
 			buffer.registerCheckpointEventHandler(handler);
@@ -217,7 +216,7 @@ public class BarrierBufferTest {
 			};
 
 			MockInputGate gate = new MockInputGate(PAGE_SIZE, 3, Arrays.asList(sequence));
-			BarrierBuffer buffer = new BarrierBuffer(gate, IO_MANAGER);
+			BarrierBuffer buffer = new BarrierBuffer(gate, IO_MANAGER, null);
 
 			ValidatingCheckpointHandler handler = new ValidatingCheckpointHandler();
 			buffer.registerCheckpointEventHandler(handler);
@@ -310,7 +309,7 @@ public class BarrierBufferTest {
 			};
 
 			MockInputGate gate = new MockInputGate(PAGE_SIZE, 3, Arrays.asList(sequence));
-			BarrierBuffer buffer = new BarrierBuffer(gate, IO_MANAGER);
+			BarrierBuffer buffer = new BarrierBuffer(gate, IO_MANAGER, null);
 
 			ValidatingCheckpointHandler handler = new ValidatingCheckpointHandler();
 			buffer.registerCheckpointEventHandler(handler);
@@ -399,7 +398,7 @@ public class BarrierBufferTest {
 			};
 
 			MockInputGate gate = new MockInputGate(PAGE_SIZE, 3, Arrays.asList(sequence));
-			BarrierBuffer buffer = new BarrierBuffer(gate, IO_MANAGER);
+			BarrierBuffer buffer = new BarrierBuffer(gate, IO_MANAGER, null);
 
 			ValidatingCheckpointHandler handler = new ValidatingCheckpointHandler();
 			buffer.registerCheckpointEventHandler(handler);
@@ -505,7 +504,7 @@ public class BarrierBufferTest {
 			};
 
 			MockInputGate gate = new MockInputGate(PAGE_SIZE, 3, Arrays.asList(sequence));
-			BarrierBuffer buffer = new BarrierBuffer(gate, IO_MANAGER);
+			BarrierBuffer buffer = new BarrierBuffer(gate, IO_MANAGER, null);
 
 			ValidatingCheckpointHandler handler = new ValidatingCheckpointHandler();
 			buffer.registerCheckpointEventHandler(handler);
@@ -588,7 +587,7 @@ public class BarrierBufferTest {
 			};
 
 			MockInputGate gate = new MockInputGate(PAGE_SIZE, 3, Arrays.asList(sequence));
-			BarrierBuffer buffer = new BarrierBuffer(gate, IO_MANAGER);
+			BarrierBuffer buffer = new BarrierBuffer(gate, IO_MANAGER, null);
 
 			ValidatingCheckpointHandler handler = new ValidatingCheckpointHandler();
 			buffer.registerCheckpointEventHandler(handler);
@@ -689,7 +688,7 @@ public class BarrierBufferTest {
 			};
 
 			MockInputGate gate = new MockInputGate(PAGE_SIZE, 3, Arrays.asList(sequence));
-			BarrierBuffer buffer = new BarrierBuffer(gate, IO_MANAGER);
+			BarrierBuffer buffer = new BarrierBuffer(gate, IO_MANAGER, null);
 
 			// checkpoint 1
 			check(sequence[0], buffer.getNextNonBlocked());
@@ -760,7 +759,7 @@ public class BarrierBufferTest {
 			};
 
 			MockInputGate gate = new MockInputGate(PAGE_SIZE, 3, Arrays.asList(sequence));
-			BarrierBuffer buffer = new BarrierBuffer(gate, IO_MANAGER);
+			BarrierBuffer buffer = new BarrierBuffer(gate, IO_MANAGER, null);
 
 			ValidatingCheckpointHandler handler = new ValidatingCheckpointHandler();
 			buffer.registerCheckpointEventHandler(handler);
@@ -829,7 +828,7 @@ public class BarrierBufferTest {
 
 			MockInputGate gate = new MockInputGate(PAGE_SIZE, 4, Arrays.asList(sequence));
 			
-			BarrierBuffer buffer = new BarrierBuffer(gate, IO_MANAGER);
+			BarrierBuffer buffer = new BarrierBuffer(gate, IO_MANAGER, null);
 			
 			// pre checkpoint 2
 			check(sequence[0], buffer.getNextNonBlocked());

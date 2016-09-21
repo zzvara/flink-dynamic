@@ -22,6 +22,7 @@ import org.apache.flink.api.common.ExecutionConfig;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.typeinfo.BasicTypeInfo;
 import org.apache.flink.core.testutils.OneShotLatch;
+import org.apache.flink.runtime.io.network.api.CheckpointBarrier;
 import org.apache.flink.runtime.io.network.api.writer.ResultPartitionWriter;
 import org.apache.flink.runtime.operators.testutils.MockInputSplitProvider;
 import org.apache.flink.runtime.state.AsynchronousStateHandle;
@@ -131,7 +132,7 @@ public class StreamTaskAsyncCheckpointTest {
 			}
 		}
 
-		task.triggerCheckpoint(42, 17);
+		task.triggerCheckpoint(new CheckpointBarrier(42, 17));
 
 		// now we allow the checkpoint
 		delayCheckpointLatch.trigger();

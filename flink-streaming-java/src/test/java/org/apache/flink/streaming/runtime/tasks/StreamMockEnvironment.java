@@ -47,6 +47,7 @@ import org.apache.flink.runtime.operators.testutils.UnregisteredTaskMetricsGroup
 import org.apache.flink.runtime.operators.testutils.MockInputSplitProvider;
 import org.apache.flink.runtime.plugable.DeserializationDelegate;
 import org.apache.flink.runtime.plugable.NonReusingDeserializationDelegate;
+import org.apache.flink.runtime.repartitioning.FlinkTaskContext;
 import org.apache.flink.runtime.state.StateHandle;
 import org.apache.flink.runtime.taskmanager.TaskManagerRuntimeInfo;
 
@@ -291,6 +292,11 @@ public class StreamMockEnvironment implements Environment {
 	@Override
 	public AccumulatorRegistry getAccumulatorRegistry() {
 		return accumulatorRegistry;
+	}
+
+	@Override
+	public FlinkTaskContext getTaskContext() {
+		return null;
 	}
 
 	@Override

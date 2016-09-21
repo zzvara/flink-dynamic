@@ -33,6 +33,7 @@ import org.apache.flink.api.common.JobID;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.tasks.InputSplitProvider;
 import org.apache.flink.runtime.memory.MemoryManager;
+import org.apache.flink.runtime.repartitioning.FlinkTaskContext;
 import org.apache.flink.runtime.state.StateHandle;
 import org.apache.flink.runtime.taskmanager.TaskManagerRuntimeInfo;
 
@@ -146,6 +147,8 @@ public interface Environment {
 	 * @return the registry
 	 */
 	AccumulatorRegistry getAccumulatorRegistry();
+
+	FlinkTaskContext getTaskContext();
 
 	/**
 	 * Confirms that the invokable has successfully completed all steps it needed to

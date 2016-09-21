@@ -90,7 +90,7 @@ public class NettyConfig {
 		LOG.info(this.toString());
 	}
 
-	InetAddress getServerAddress() {
+	public InetAddress getServerAddress() {
 		return serverAddress;
 	}
 

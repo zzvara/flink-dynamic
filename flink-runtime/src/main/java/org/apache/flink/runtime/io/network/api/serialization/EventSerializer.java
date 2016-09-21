@@ -54,7 +54,7 @@ public class EventSerializer {
 		if (eventClass == EndOfPartitionEvent.class) {
 			return ByteBuffer.wrap(new byte[] { 0, 0, 0, END_OF_PARTITION_EVENT });
 		}
-		else if (eventClass == CheckpointBarrier.class) {
+		else if (eventClass.isAssignableFrom(CheckpointBarrier.class)) {
 			CheckpointBarrier barrier = (CheckpointBarrier) event;
 			
 			ByteBuffer buf = ByteBuffer.allocate(20);

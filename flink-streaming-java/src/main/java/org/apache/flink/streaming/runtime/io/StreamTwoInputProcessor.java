@@ -103,7 +103,7 @@ public class StreamTwoInputProcessor<IN1, IN2> {
 		final InputGate inputGate = InputGateUtil.createInputGate(inputGates1, inputGates2);
 
 		if (checkpointMode == CheckpointingMode.EXACTLY_ONCE) {
-			this.barrierHandler = new BarrierBuffer(inputGate, ioManager);
+			this.barrierHandler = new BarrierBuffer(inputGate, ioManager, null);
 		}
 		else if (checkpointMode == CheckpointingMode.AT_LEAST_ONCE) {
 			this.barrierHandler = new BarrierTracker(inputGate);

@@ -286,6 +286,15 @@ public abstract class AbstractStreamOperator<OUT>
 			stateDescriptor);
 	}
 
+	@Override
+	@SuppressWarnings({"unchecked", "rawtypes"})
+	public Object getStateKey(StreamRecord record) throws Exception {
+		Object key = null;
+		if (stateKeySelector1 != null) {
+			key = ((KeySelector) stateKeySelector1).getKey(record.getValue());
+		}
+		return key;
+	}
 
 	@Override
 	@SuppressWarnings({"unchecked", "rawtypes"})

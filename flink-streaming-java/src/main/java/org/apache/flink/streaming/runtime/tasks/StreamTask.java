@@ -26,8 +26,11 @@ import org.apache.flink.configuration.IllegalConfigurationException;
 import org.apache.flink.metrics.Gauge;
 import org.apache.flink.runtime.execution.CancelTaskException;
 import org.apache.flink.runtime.io.network.api.CheckpointBarrier;
+import org.apache.flink.runtime.io.network.api.CheckpointBarrierWithRepartitioner;
 import org.apache.flink.runtime.jobgraph.tasks.AbstractInvokable;
 import org.apache.flink.runtime.jobgraph.tasks.StatefulTask;
+import org.apache.flink.runtime.repartitioning.FlinkTaskContext;
+import org.apache.flink.runtime.repartitioning.network.StateAccessor;
 import org.apache.flink.runtime.state.AbstractStateBackend;
 import org.apache.flink.runtime.state.AsynchronousKvStateSnapshot;
 import org.apache.flink.runtime.state.AsynchronousStateHandle;
@@ -40,6 +43,7 @@ import org.apache.flink.runtime.taskmanager.DispatcherThreadFactory;
 import org.apache.flink.runtime.util.event.EventListener;
 import org.apache.flink.streaming.api.TimeCharacteristic;
 import org.apache.flink.streaming.api.graph.StreamConfig;
+import org.apache.flink.streaming.api.operators.AbstractStreamOperator;
 import org.apache.flink.streaming.api.operators.Output;
 import org.apache.flink.streaming.api.operators.StreamOperator;
 import org.apache.flink.streaming.runtime.io.RecordWriterOutput;
@@ -102,7 +106,7 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 @Internal
 public abstract class StreamTask<OUT, Operator extends StreamOperator<OUT>>
 		extends AbstractInvokable
-		implements StatefulTask<StreamTaskStateList> {
+		implements StatefulTask<StreamTaskStateList>, StateAccessor {
 
 	/** The thread group that holds all trigger timer threads */
 	public static final ThreadGroup TRIGGER_THREAD_GROUP = new ThreadGroup("Triggers");
@@ -160,6 +164,30 @@ public abstract class StreamTask<OUT, Operator extends StreamOperator<OUT>>
 	private volatile boolean canceled;
 
 	private long lastCheckpointSize = 0;
+
+	// ------------------------------------------------------------------------
+	//  State backend exposure
+	// ------------------------------------------------------------------------
+
+	private AbstractStateBackend stateBackend = null;
+
+	@Override
+	public Map getState() {
+		validateStateBackend();
+		return stateBackend.getState();
+	}
+
+	@Override
+	public void setState(Map state) {
+		validateStateBackend();
+		stateBackend.setState(state);
+	}
+
+	private void validateStateBackend() {
+		if (stateBackend == null) {
+			throw new RuntimeException("Cannot access state backend.");
+		}
+	}
 
 	// ------------------------------------------------------------------------
 	//  Life cycle methods for specific implementations
@@ -226,6 +254,13 @@ public abstract class StreamTask<OUT, Operator extends StreamOperator<OUT>>
 
 			if (headOperator != null) {
 				headOperator.setup(this, configuration, operatorChain.getChainEntryPoint());
+
+				// Setting state holder
+				// todo set state holder elsewhere
+				if (headOperator instanceof AbstractStreamOperator) {
+					AbstractStreamOperator streamOp = (AbstractStreamOperator) this.headOperator;
+					stateBackend = streamOp.getStateBackend();
+				}
 			}
 
 			getEnvironment().getMetricGroup().gauge("lastCheckpointSize", new Gauge<Long>() {
@@ -560,9 +595,9 @@ public abstract class StreamTask<OUT, Operator extends StreamOperator<OUT>>
 	}
 
 	@Override
-	public boolean triggerCheckpoint(long checkpointId, long timestamp) throws Exception {
+	public boolean triggerCheckpoint(CheckpointBarrier barrier) throws Exception {
 		try {
-			return performCheckpoint(checkpointId, timestamp);
+			return performCheckpoint(barrier);
 		}
 		catch (Exception e) {
 			// propagate exceptions only if the task is still in "running" state
@@ -574,9 +609,12 @@ public abstract class StreamTask<OUT, Operator extends StreamOperator<OUT>>
 		}
 	}
 
-	protected boolean performCheckpoint(final long checkpointId, final long timestamp) throws Exception {
+	protected boolean performCheckpoint(final CheckpointBarrier barrier) throws Exception {
+		long checkpointId = barrier.getId();
+		long timestamp = barrier.getTimestamp();
+
 		LOG.debug("Starting checkpoint {} on task {}", checkpointId, getName());
-		
+
 		synchronized (lock) {
 			if (isRunning) {
 
@@ -584,8 +622,16 @@ public abstract class StreamTask<OUT, Operator extends StreamOperator<OUT>>
 				// lock scope, they are an atomic operation regardless of the order in which they occur.
 				// Given this, we immediately emit the checkpoint barriers, so the downstream operators
 				// can start their checkpoint work as soon as possible
-				operatorChain.broadcastCheckpointBarrier(checkpointId, timestamp);
-				
+				operatorChain.broadcastCheckpointBarrier(barrier);
+
+				// maybe start buffering on barrier arrival
+				FlinkTaskContext taskContext = getEnvironment().getTaskContext();
+				if (taskContext.partitioningByHash()
+					&& barrier instanceof CheckpointBarrierWithRepartitioner) {
+
+					taskContext.onBarrierArrival((CheckpointBarrierWithRepartitioner) barrier);
+				}
+
 				// now draw the state snapshot
 				final StreamOperator<?>[] allOperators = operatorChain.getAllOperators();
 				final StreamTaskState[] states = new StreamTaskState[allOperators.length];
@@ -758,7 +804,7 @@ public abstract class StreamTask<OUT, Operator extends StreamOperator<OUT>>
 			@Override
 			public void onEvent(CheckpointBarrier barrier) {
 				try {
-					performCheckpoint(barrier.getId(), barrier.getTimestamp());
+					performCheckpoint(barrier);
 				}
 				catch (CancelTaskException e) {
 					throw e;

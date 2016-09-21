@@ -34,6 +34,7 @@ import org.apache.flink.runtime.io.network.partition.consumer.InputGate;
 import org.apache.flink.runtime.jobgraph.JobVertexID;
 import org.apache.flink.runtime.jobgraph.tasks.InputSplitProvider;
 import org.apache.flink.runtime.memory.MemoryManager;
+import org.apache.flink.runtime.repartitioning.FlinkTaskContext;
 import org.apache.flink.runtime.state.StateHandle;
 import org.apache.flink.runtime.taskmanager.TaskManagerRuntimeInfo;
 
@@ -130,6 +131,11 @@ public class DummyEnvironment implements Environment {
 
 	@Override
 	public AccumulatorRegistry getAccumulatorRegistry() {
+		return null;
+	}
+
+	@Override
+	public FlinkTaskContext getTaskContext() {
 		return null;
 	}
 

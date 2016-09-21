@@ -22,14 +22,18 @@ import java.util.ArrayDeque;
 
 import org.apache.flink.annotation.Internal;
 import org.apache.flink.runtime.io.disk.iomanager.IOManager;
+import org.apache.flink.runtime.io.network.api.CheckpointBarrierWithRepartitioner;
 import org.apache.flink.runtime.io.network.api.EndOfPartitionEvent;
 import org.apache.flink.runtime.io.network.partition.consumer.BufferOrEvent;
 import org.apache.flink.runtime.io.network.partition.consumer.InputGate;
+import org.apache.flink.runtime.repartitioning.RedistributeStateHandler;
+import org.apache.flink.runtime.repartitioning.network.BlockReleaserListener;
 import org.apache.flink.runtime.util.event.EventListener;
 import org.apache.flink.runtime.io.network.api.CheckpointBarrier;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import scala.Option;
 
 /**
  * The barrier buffer is {@link CheckpointBarrierHandler} that blocks inputs with barriers until
@@ -79,16 +83,20 @@ public class BarrierBuffer implements CheckpointBarrierHandler {
 	/** Flag to indicate whether we have drawn all available input */
 	private boolean endOfStream;
 
+	private final Option<RedistributeStateHandler> redistributor;
+
 	/**
 	 * 
 	 * @param inputGate The input gate to draw the buffers and events from.
 	 * @param ioManager The I/O manager that gives access to the temp directories.
-	 * 
+	 *
+	 * @param redistributor
 	 * @throws IOException Thrown, when the spilling to temp files cannot be initialized.
 	 */
-	public BarrierBuffer(InputGate inputGate, IOManager ioManager) throws IOException {
+	public BarrierBuffer(InputGate inputGate, IOManager ioManager, Option<RedistributeStateHandler> redistributor) throws IOException {
 		this.inputGate = inputGate;
 		this.totalNumberOfInputChannels = inputGate.getNumberOfInputChannels();
+		this.redistributor = redistributor;
 		this.blockedChannels = new boolean[this.totalNumberOfInputChannels];
 		
 		this.bufferSpiller = new BufferSpiller(ioManager, inputGate.getPageSize());
@@ -123,7 +131,7 @@ public class BarrierBuffer implements CheckpointBarrierHandler {
 				else if (next.isBuffer()) {
 					return next;
 				}
-				else if (next.getEvent().getClass() == CheckpointBarrier.class) {
+				else if (next.getEvent() instanceof CheckpointBarrier) {
 					if (!endOfStream) {
 						// process barriers only if there is a chance of the checkpoint completing
 						processBarrier((CheckpointBarrier) next.getEvent(), next.getChannelIndex());
@@ -200,10 +208,28 @@ public class BarrierBuffer implements CheckpointBarrierHandler {
 			}
 
 			if (checkpointHandler != null) {
+				if (redistributor.isDefined() && receivedBarrier instanceof CheckpointBarrierWithRepartitioner) {
+					// todo only release when all repartitioning has completed
+					BlockReleaserListener blockReleaserListener = new BlockReleaserListener() {
+						@Override
+						public void canReleaseBlock() throws IOException {
+							releaseBlocks();
+						}
+					};
+					redistributor.get().setBlockReleaserListener(blockReleaserListener);
+
+					// TODO start repartitioning here
+					redistributor.get().onBarrierArrival();
+				}
+
 				checkpointHandler.onEvent(receivedBarrier);
 			}
-			
-			releaseBlocks();
+
+			// We are only releasing the blocks if not repartitioning checkpoint barrier arrived
+			if (!redistributor.isDefined() ||
+				(redistributor.isDefined() && !(receivedBarrier instanceof CheckpointBarrierWithRepartitioner))) {
+                releaseBlocks();
+			}
 		}
 	}
 	

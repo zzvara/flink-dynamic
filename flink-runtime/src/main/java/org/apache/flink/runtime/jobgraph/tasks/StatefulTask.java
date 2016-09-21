@@ -18,6 +18,7 @@
 
 package org.apache.flink.runtime.jobgraph.tasks;
 
+import org.apache.flink.runtime.io.network.api.CheckpointBarrier;
 import org.apache.flink.runtime.state.StateHandle;
 
 /**
@@ -40,12 +41,10 @@ public interface StatefulTask<T extends StateHandle<?>> {
 	 * the data sources), or called synchronously when all incoming channels have
 	 * reported a checkpoint barrier.
 	 *
-	 * @param checkpointId The ID of the checkpoint, incrementing.
-	 * @param timestamp The timestamp when the checkpoint was triggered at the JobManager.
 	 *
 	 * @return {@code false} if the checkpoint can not be carried out, {@code true} otherwise
 	 */
-	boolean triggerCheckpoint(long checkpointId, long timestamp) throws Exception;
+	boolean triggerCheckpoint(CheckpointBarrier barrier) throws Exception;
 
 
 	/**
