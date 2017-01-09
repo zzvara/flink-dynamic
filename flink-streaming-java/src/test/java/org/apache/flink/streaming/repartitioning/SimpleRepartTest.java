@@ -24,6 +24,7 @@ import org.junit.Test;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Random;
 
 public class SimpleRepartTest {
@@ -37,7 +38,20 @@ public class SimpleRepartTest {
 		env.enableCheckpointing(500, CheckpointingMode.EXACTLY_ONCE);
 		env.setParallelism(4);
 
-		env.fromElements("a", "b", "c")
+		env.addSource(new SourceFunction<String>() {
+			@Override
+			public void run(SourceContext<String> ctx) throws Exception {
+				List<String> elems = Arrays.asList("a", "b", "c", "d", "e", "f");
+				for (int i = 0; i < 1000; i++) {
+
+				}
+			}
+
+			@Override
+			public void cancel() {
+
+			}
+		})
 			.map(new MapFunction<String, String>() {
 				@Override
 				public String map(String value) throws Exception {
