@@ -27,6 +27,7 @@ import org.apache.flink.api.common.typeutils.base.VoidSerializer;
 import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.core.testutils.OneShotLatch;
+import org.apache.flink.runtime.io.network.api.CheckpointBarrier;
 import org.apache.flink.runtime.io.network.api.writer.ResultPartitionWriter;
 import org.apache.flink.runtime.operators.testutils.MockInputSplitProvider;
 import org.apache.flink.runtime.state.StateHandle;
@@ -167,7 +168,7 @@ public class RocksDBAsyncKVSnapshotTest {
 
 		testHarness.processElement(new StreamRecord<>("Wohoo", 0));
 
-		task.triggerCheckpoint(42, 17);
+		task.triggerCheckpoint(new CheckpointBarrier(42, 17));
 
 		// now we allow the checkpoint
 		delayCheckpointLatch.trigger();
@@ -270,7 +271,7 @@ public class RocksDBAsyncKVSnapshotTest {
 
 		testHarness.processElement(new StreamRecord<>("Wohoo", 0));
 
-		task.triggerCheckpoint(42, 17);
+		task.triggerCheckpoint(new CheckpointBarrier(42, 17));
 
 		// now we allow the checkpoint
 		delayCheckpointLatch.trigger();

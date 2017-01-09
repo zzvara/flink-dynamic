@@ -45,7 +45,8 @@ class FlinkTaskContext(val taskName: String,
 
   val redistributeStateHandler =
     if (hasKeyedState) {
-      Some(new RedistributeStateHandler(masterRef, partition, numOfSubtasks, hasKeyedState, redistNetEnv))
+      Some(new RedistributeStateHandler(
+        masterRef, partition, numOfSubtasks, hasKeyedState, redistNetEnv))
     } else {
       None
     }

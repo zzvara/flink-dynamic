@@ -59,7 +59,6 @@ import org.apache.flink.runtime.messages.TaskMessages.TaskInFinalState;
 import org.apache.flink.runtime.messages.TaskMessages.UpdateTaskExecutionState;
 import org.apache.flink.runtime.messages.checkpoint.DeclineCheckpoint;
 import org.apache.flink.runtime.repartitioning.FlinkTaskContext;
-import org.apache.flink.runtime.repartitioning.RedistributeStateHandler;
 import org.apache.flink.runtime.repartitioning.network.StateAccessor;
 import org.apache.flink.runtime.state.StateHandle;
 import org.apache.flink.runtime.state.StateUtils;

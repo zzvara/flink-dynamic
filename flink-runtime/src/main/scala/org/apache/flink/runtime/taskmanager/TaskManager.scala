@@ -544,7 +544,8 @@ class TaskManager(
     val barrier = partitionerVersion match {
       case None => new CheckpointBarrier(checkpointId, timestamp)
       case Some(version) => {
-        log.info(s"Triggering checkpoint $checkpointId@$timestamp with partitioner version $version")
+        log.info(s"Triggering checkpoint $checkpointId@$timestamp with partitioner" +
+          s" version $version")
 //        new CheckpointBarrier(checkpointId, timestamp)
         // fixme: proper chkpntbarrier serialization
         new CheckpointBarrierWithRepartitioner(checkpointId, timestamp, version)
@@ -960,7 +961,8 @@ class TaskManager(
     instanceID = id
 
     // creating and registering repartitioning tracker worker
-    val serverAddr = network.configuration.nettyConfig.map(_.getServerAddress.getHostName).getOrElse("localhost")
+    val serverAddr = network.configuration.nettyConfig
+      .map(_.getServerAddress.getHostName).getOrElse("localhost")
     rtw = Some(new FlinkRepartitioningTrackerWorker(self, jobManager, id.toString, serverAddr))
     rtw.get.register()
     println("registered RT worker")
@@ -1160,7 +1162,8 @@ class TaskManager(
 
       // checking if stateful task
       val stateKeySerializer: TypeSerializer[_] =
-        InstantiationUtil.readObjectFromConfig(tdd.getTaskConfiguration, "statekeyser", ClassLoader.getSystemClassLoader)
+        InstantiationUtil.readObjectFromConfig(tdd.getTaskConfiguration,
+          "statekeyser", ClassLoader.getSystemClassLoader)
       val hasKeyedState = stateKeySerializer != null
 
       // task context for repartitioning metrics

@@ -69,7 +69,9 @@ extends RepartitioningTrackerWorker[FlinkMessageable, FlinkMessageable,
   }
   // --------------------------------------------------
 
-  private def privateTaskArrival(taskID: Long, stageID: Int, taskContext: FlinkTaskContext): Unit = {
+  private def privateTaskArrival(taskID: Long,
+                                 stageID: Int,
+                                 taskContext: FlinkTaskContext): Unit = {
     super.taskArrival(taskID, stageID, taskContext)
     val tasksAtStage = taskContextsByStageId
       .getOrElse(stageID, new mutable.MutableList[FlinkTaskContext]())

@@ -129,7 +129,8 @@ class FlinkRepartitioningTrackerMaster(masterRef: ActorRef)
             s"while another vertex is being monitor." +
             s"Currently monitoring only one vertex is supported in Flink" +
             s"dynamic repartitioning.")
-          throw new RuntimeException(s"Received histograms from multiple vertices." + s"This is not supported in Flink.")
+          throw new RuntimeException(
+            s"Received histograms from multiple vertices." + s"This is not supported in Flink.")
         }
         super.componentReceiveAndReply(context)(sws)
       }
@@ -171,7 +172,8 @@ object FlinkRepartitioningTrackerMaster {
 
   case class TriggerCheckpointWithPartitioner(partitionerVersion: Int, trigger: TriggerCheckpoint)
 
-  def checkpointTriggerCreator(): (JobID, ExecutionAttemptID, Long, Long) => java.io.Serializable = {
+  def checkpointTriggerCreator(): (JobID, ExecutionAttemptID, Long, Long) =>
+    java.io.Serializable = {
     if (getInstance().nextPartitioner.isDefined) {
       val partitionerVersion = getInstance().nextPartitioner.get._3
       getInstance().nextPartitioner = None

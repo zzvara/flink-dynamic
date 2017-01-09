@@ -39,7 +39,7 @@ import static org.apache.flink.util.Preconditions.checkArgument;
 /**
  * This record writer keeps data in buffers at most for a certain timeout. It spawns a separate thread
  * that flushes the outputs in a defined interval, to make sure data does not linger in the buffers for too long.
- * 
+ *
  * @param <T> The type of elements written.
  */
 @Internal
@@ -47,11 +47,11 @@ public class StreamRecordWriter<T extends IOReadableWritable> extends RecordWrit
 
 	/** Default name for teh output flush thread, if no name with a task reference is given */
 	private static final String DEFAULT_OUTPUT_FLUSH_THREAD_NAME = "OutputFlusher";
-	
-	
+
+
 	/** The thread that periodically flushes the output, to give an upper latency bound */
 	private final OutputFlusher outputFlusher;
-	
+
 	/** Flag indicating whether the output should be flushed after every element */
 	private final boolean flushAlways;
 
@@ -64,18 +64,18 @@ public class StreamRecordWriter<T extends IOReadableWritable> extends RecordWrit
 	private final MaybeBufferingEmitter<T> emitter;
 
 	public StreamRecordWriter(ResultPartitionWriter writer, ChannelSelector<T> channelSelector, long timeout,
-							  Environment taskEnvironment) {
+			Environment taskEnvironment) {
 		this(writer, channelSelector, timeout, null, taskEnvironment);
 	}
 	
 	public StreamRecordWriter(ResultPartitionWriter writer, ChannelSelector<T> channelSelector,
-							  long timeout, String taskName, Environment taskEnvironment) {
-		
+			long timeout, String taskName, Environment taskEnvironment) {
+
 		super(writer, channelSelector);
 		this.taskEnvironment = taskEnvironment;
 
 		checkArgument(timeout >= -1);
-		
+
 		if (timeout == -1) {
 			flushAlways = false;
 			outputFlusher = null;
@@ -88,7 +88,7 @@ public class StreamRecordWriter<T extends IOReadableWritable> extends RecordWrit
 			flushAlways = false;
 			String threadName = taskName == null ?
 								DEFAULT_OUTPUT_FLUSH_THREAD_NAME : "Output Timeout Flusher - " + taskName;
-			
+
 			outputFlusher = new OutputFlusher(threadName, timeout);
 			outputFlusher.start();
 		}
@@ -158,7 +158,7 @@ public class StreamRecordWriter<T extends IOReadableWritable> extends RecordWrit
 
 	/**
 	 * Notifies the writer that the output flusher thread encountered an exception.
-	 * 
+	 *
 	 * @param t The exception to report.
 	 */
 	private void notifyFlusherException(Throwable t) {
@@ -166,7 +166,7 @@ public class StreamRecordWriter<T extends IOReadableWritable> extends RecordWrit
 			this.flusherException = t;
 		}
 	}
-	
+
 	private void checkErroneous() throws IOException {
 		if (flusherException != null) {
 			throw new IOException("An exception happened while flushing the outputs", flusherException);
@@ -174,25 +174,25 @@ public class StreamRecordWriter<T extends IOReadableWritable> extends RecordWrit
 	}
 
 	// ------------------------------------------------------------------------
-	
+
 	/**
 	 * A dedicated thread that periodically flushes the output buffers, to set upper latency bounds.
-	 * 
+	 *
 	 * The thread is daemonic, because it is only a utility thread.
 	 */
 	private class OutputFlusher extends Thread {
-		
+
 		private final long timeout;
-		
+
 		private volatile boolean running = true;
 
-		
+
 		OutputFlusher(String name, long timeout) {
 			super(name);
 			setDaemon(true);
 			this.timeout = timeout;
 		}
-		
+
 		public void terminate() {
 			running = false;
 			interrupt();
@@ -212,7 +212,7 @@ public class StreamRecordWriter<T extends IOReadableWritable> extends RecordWrit
 							throw new Exception(e);
 						}
 					}
-					
+
 					// any errors here should let the thread come to a halt and be
 					// recognized by the writer 
 					flush();

@@ -228,7 +228,7 @@ public class BarrierBuffer implements CheckpointBarrierHandler {
 			// We are only releasing the blocks if not repartitioning checkpoint barrier arrived
 			if (!redistributor.isDefined() ||
 				(redistributor.isDefined() && !(receivedBarrier instanceof CheckpointBarrierWithRepartitioner))) {
-                releaseBlocks();
+				releaseBlocks();
 			}
 		}
 	}

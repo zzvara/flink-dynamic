@@ -56,14 +56,25 @@ class RepartioningITCase2 {
 
       override def run(ctx: SourceContext[String]): Unit = {
 
-        val keys = Array("a", "b", "c", "d", "e", "f")
+        val keys = ('a' to 'z').map(_.toString).toArray
+
         val random = new Random()
+        val lambda = keys.length
+        val scale = keys.length
+        def randomGen(): Int = {
+          val x = Math.round(Math.floor(randomExp(lambda)(random) * scale))
+          if (x >= keys.length) {
+            keys.length - 1
+          } else {
+            x.toInt
+          }
+        }
 
         running = true
 
         var cnt = 0
         while (cnt < totalNumberOfItems && running) {
-          val randomKey = keys(random.nextInt(keys.length))
+          val randomKey = keys(randomGen())
           ctx.collect(randomKey)
           Thread.sleep(sleepTimeInMillis)
 
@@ -148,4 +159,8 @@ object RepartioningITCase2 {
   def fail(msg: String): Unit = throw new TestFailure(msg)
   def success(): Unit = throw new TestSuccess()
 
+  def randomExp(lambda: Double)(random: Random): Double = {
+    val r = random.nextDouble()
+    (-1 / lambda) * Math.log(1 - r)
+  }
 }
