@@ -18,10 +18,10 @@
 
 package org.apache.flink.runtime.repartitioning
 
-import hu.sztaki.drc.{Sampler, ScannerFactory, Throughput}
+import hu.sztaki.drc.{Sampling, ScannerFactory, Throughput}
 
 class FlinkThroughput(totalSlots: Int,
-                      histogramDrop: (Int, Long, Int, Sampler) => Unit)
+                      histogramDrop: (Int, Long, Int, Sampling) => Unit)
   extends Throughput[FlinkTaskContext, FlinkTaskMetrics](totalSlots, histogramDrop) {
 
   override def whenStarted(): Unit = {
@@ -35,7 +35,7 @@ object FlinkThroughput {
 
   implicit object FlinkScannerFactory extends ScannerFactory[FlinkThroughput] {
     override def apply(totalSlots: Int,
-                       histogramDrop: (Int, Long, Int, Sampler) => Unit)
+                       histogramDrop: (Int, Long, Int, Sampling) => Unit)
     : FlinkThroughput =
       new FlinkThroughput(totalSlots, histogramDrop)
   }

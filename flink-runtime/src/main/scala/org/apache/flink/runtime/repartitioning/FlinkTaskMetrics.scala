@@ -18,7 +18,7 @@
 
 package org.apache.flink.runtime.repartitioning
 
-import hu.sztaki.drc.{Metrics, Sampler}
+import hu.sztaki.drc.{Conceptier, Metrics, Sampling}
 import hu.sztaki.drc.partitioner.RepartitioningInfo
 
 class FlinkTaskMetrics extends Metrics[FlinkTaskMetrics] {
@@ -26,7 +26,8 @@ class FlinkTaskMetrics extends Metrics[FlinkTaskMetrics] {
   override var repartitioningInfo: Option[RepartitioningInfo[FlinkTaskMetrics]] = None
 
   // fixme place here data characteristics accum
-  private val dcAcc = new Sampler {
+  private val dcAcc = new Conceptier {
+    override protected var HISTOGRAM_HARD_BOUNDARY = 100 // @todo FIXME
   }
 
   // todo avoid sync?
@@ -34,6 +35,6 @@ class FlinkTaskMetrics extends Metrics[FlinkTaskMetrics] {
     dcAcc.add(v)
 
   // todo avoid sync?
-  override def writeCharacteristics: Sampler =
+  override def writeCharacteristics: Sampling =
     dcAcc
 }
