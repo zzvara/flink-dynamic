@@ -27,6 +27,6 @@ SET JVM_ARGS=-Xmx512m
 
 SET FLINK_JM_CLASSPATH=%FLINK_LIB_DIR%\*
 
-java %JVM_ARGS% -cp "%FLINK_JM_CLASSPATH%"; org.apache.flink.client.CliFrontend %*
+java %JVM_ARGS% %JVM_EXTRA_ARGS% -cp %FLINK_JM_CLASSPATH%;%HADOOP_CONF_DIR%; org.apache.flink.client.CliFrontend %*
 
 endlocal

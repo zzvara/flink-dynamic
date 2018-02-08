@@ -25,13 +25,14 @@ import org.apache.flink.runtime.repartitioning.network._
 import scala.collection.mutable
 import collection.JavaConverters._
 
-class RedistributeStateHandler(val masterRef: ActorRef,
-                               val partition: Int,
-                               val numOfSubtasks: Int,
-                               val hasKeyedState: Boolean,
-                               val redistNetEnv: RedistributionNetworkEnvironment) {
+class RedistributeStateHandler(
+  val masterRef: ActorRef,
+  val partition: Int,
+  val numOfSubtasks: Int,
+  val hasKeyedState: Boolean,
+  val redistNetEnv: RedistributionNetworkEnvironment) {
 
-  val log = Logger(getClass)
+  private val log = Logger(getClass)
 
   var blockReleaserListener: Option[BlockReleaserListener] = None
 
@@ -58,7 +59,7 @@ class RedistributeStateHandler(val masterRef: ActorRef,
 
   // todo use real handler
   if (hasKeyedState) {
-    redistServer = Some(new RedistributeServer(new NettyServerHandler[Any, Any](4,
+    redistServer = Some(new RedistributeServer(new NettyServerHandler[Any, Any](10,
       new AllNewStateArrivedListener[Any, Any] {
         override def onAllNewStateArrived(statesByKey: mutable.HashMap[Any, Any]): Unit = {
           log.info(s"All new state has arrived at subtask $partition: $statesByKey")

@@ -382,11 +382,13 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 
 		final YarnClient yarnClient = getYarnClient();
 
+		LOG.info("Connected to YARN.");
 
 		// ------------------ Check if the specified queue exists --------------------
 
 		try {
 			List<QueueInfo> queues = yarnClient.getAllQueues();
+			LOG.info("Queues get.");
 			if (queues.size() > 0 && this.yarnQueue != null) { // check only if there are queues configured in yarn and for this session.
 				boolean queueFound = false;
 				for (QueueInfo queue : queues) {
@@ -413,6 +415,8 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 			}
 		}
 
+		LOG.info("Queues fetched.");
+
 		// ------------------ Add dynamic properties to local flinkConfiguraton ------
 		Map<String, String> dynProperties = getDynamicProperties(dynamicPropertiesEncoded);
 		for (Map.Entry<String, String> dynProperty : dynProperties.entrySet()) {
@@ -428,10 +432,14 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 				"filesystem scheme from configuration.", e);
 		}
 
+		LOG.info("File system scheme set.");
+
 		// initialize file system
 		// Copy the application master jar to the filesystem
 		// Create a local resource to point to the destination jar path
 		final FileSystem fs = FileSystem.get(conf);
+
+		LOG.info("FileSystem get.");
 
 		// hard coded check for the GoogleHDFS client because its not overriding the getScheme() method.
 		if (!fs.getClass().getSimpleName().equals("GoogleHadoopFileSystem") &&
@@ -464,6 +472,8 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		// Create application via yarnClient
 		final YarnClientApplication yarnApplication = yarnClient.createApplication();
 		GetNewApplicationResponse appResponse = yarnApplication.getNewApplicationResponse();
+
+		LOG.info("Application has been created.");
 
 		Resource maxRes = appResponse.getMaximumResourceCapability();
 		final String NOTE = "Please check the 'yarn.scheduler.maximum-allocation-mb' and the 'yarn.nodemanager.resource.memory-mb' configuration values\n";
@@ -518,6 +528,8 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 					"the following NodeManagers are available: " + Arrays.toString(nmFree)  + NOTE_RSC );
 			}
 		}
+
+		LOG.info("Allocated TaskManagers.");
 
 		Set<File> effectiveShipFiles = new HashSet<>(shipFiles.size());
 		for (File file : shipFiles) {
@@ -587,11 +599,16 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		// ship list that enables reuse of resources for task manager containers
 		StringBuilder envShipFileList = new StringBuilder();
 
+
+		for (File shipFile : effectiveShipFiles) {
+			LOG.info("File " + shipFile.getPath() + " to be shipped.");
+		}
+
 		// upload and register ship files
 		for (File shipFile : effectiveShipFiles) {
 			LocalResource shipResources = Records.newRecord(LocalResource.class);
 
-			Path shipLocalPath = new Path("file://" + shipFile.getAbsolutePath());
+			Path shipLocalPath = new Path("file:///" + shipFile.getAbsolutePath());
 			Path remotePath =
 				Utils.setupLocalResource(fs, appId.toString(), shipLocalPath, shipResources, fs.getHomeDirectory());
 

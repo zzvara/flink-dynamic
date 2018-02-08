@@ -89,9 +89,10 @@ class FlinkRepartitioningTrackerMaster(masterRef: ActorRef)
 
   // ------------------------------------------------
 
-
-
-  override def getTotalSlots: Int = 1 + mockNumOfTotalSlots.map(_._2)
+  /**
+    * @todo Why +1?
+    */
+  override def getTotalSlots: Int = mockNumOfTotalSlots.map(_._2)
     .getOrElse {
       logError("Number of total slots have not been set, passing the default.")
       throw new RuntimeException("Number of total slots have not been set, passing the default.")
@@ -121,8 +122,9 @@ class FlinkRepartitioningTrackerMaster(masterRef: ActorRef)
     val handleShuffleWriteStatus: PartialFunction[Any, Unit] = {
       case sws @ ShuffleWriteStatus(stageID, _, _, _) => {
         if (mockNumOfTotalSlots.isEmpty) {
-          logInfo(s"Received histogram from vertex $stageID," +
-            s"using its parallelism to mock number of total slots.")
+          logInfo(s"Received histogram from vertex $stageID, " +
+            s"using its parallelism (${vertexParallelisms.get(stageID)}) to " +
+            s"mock number of total slots.")
           mockNumOfTotalSlots = Some(stageID, vertexParallelisms.get(stageID))
         } else if (mockNumOfTotalSlots.get._1 != stageID) {
           logError(s"Received histogram from vertex $stageID," +
