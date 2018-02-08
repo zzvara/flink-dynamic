@@ -286,6 +286,7 @@ under the License.
 							</archive>
 
 							<includes>
+								<include>repartitioning.conf</include>
 								<include>org/apache/flink/streaming/examples/repartitioning/RepartitioningCount.class</include>
 								<include>org/apache/flink/streaming/examples/repartitioning/RepartitioningCount$*.class</include>
 							</includes>
