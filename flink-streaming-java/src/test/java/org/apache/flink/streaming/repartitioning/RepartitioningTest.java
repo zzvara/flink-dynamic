@@ -50,8 +50,9 @@ public class RepartitioningTest {
 		final int parallelism = 50;
 		RedistributeStateHandler$.MODULE$.setPartitions(parallelism);
 
-		final StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironment(parallelism);
+		final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
+		env.setParallelism(parallelism);
 		env.enableCheckpointing(500, CheckpointingMode.EXACTLY_ONCE);
 		env.setParallelism(parallelism);
 
@@ -129,6 +130,6 @@ public class RepartitioningTest {
 			}
 		});
 
-		env.execute();
+		env.execute("RepartitioningTest");
 	}
 }
