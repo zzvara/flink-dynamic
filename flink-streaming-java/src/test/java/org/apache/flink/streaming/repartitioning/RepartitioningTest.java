@@ -52,7 +52,6 @@ public class RepartitioningTest {
 
 		final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
-		env.setParallelism(parallelism);
 		env.enableCheckpointing(500, CheckpointingMode.EXACTLY_ONCE);
 		env.setParallelism(parallelism);
 
