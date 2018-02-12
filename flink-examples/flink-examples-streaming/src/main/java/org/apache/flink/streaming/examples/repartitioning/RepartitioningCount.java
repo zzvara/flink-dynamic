@@ -39,11 +39,11 @@ import java.util.Random;
 
 public class RepartitioningCount {
 	public static void main(String[] args) throws Exception {
-		final int sleepTimeInNanos = Integer.getInteger(args[0]);
-		final int parallelism = Integer.getInteger(args[1]);
-		final int exponent = Integer.getInteger(args[2]);
-		final int shift = Integer.getInteger(args[3]);
-		final int width = Integer.getInteger(args[4]);
+		final int sleepTimeInNanos = Integer.parseInt(args[0]);
+		final int parallelism = Integer.parseInt(args[1]);
+		final double exponent = Double.parseDouble(args[2]);
+		final double shift = Double.parseDouble(args[3]);
+		final int width = Integer.parseInt(args[4]);
 		RedistributeStateHandler$.MODULE$.setPartitions(parallelism);
 
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
