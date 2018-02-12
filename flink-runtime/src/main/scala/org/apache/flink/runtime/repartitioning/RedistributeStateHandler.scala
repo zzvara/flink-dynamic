@@ -59,7 +59,9 @@ class RedistributeStateHandler(
 
   // todo use real handler
   if (hasKeyedState) {
-    redistServer = Some(new RedistributeServer(new NettyServerHandler[Any, Any](10,
+    redistServer = Some(new RedistributeServer(new NettyServerHandler[Any, Any](
+      // @todo this must be set before the job is to be ran. this implementation is to be improved
+      RedistributeStateHandler.partitions,
       new AllNewStateArrivedListener[Any, Any] {
         override def onAllNewStateArrived(statesByKey: mutable.HashMap[Any, Any]): Unit = {
           log.info(s"All new state has arrived at subtask $partition: $statesByKey")
@@ -189,5 +191,13 @@ class RedistributeStateHandler(
     allNewState = None
     localState = None
     blockReleaserListener.get.canReleaseBlock()
+  }
+}
+
+object RedistributeStateHandler {
+  var partitions: Int = 20
+
+  def setPartitions(i: Int) = {
+    partitions = i
   }
 }

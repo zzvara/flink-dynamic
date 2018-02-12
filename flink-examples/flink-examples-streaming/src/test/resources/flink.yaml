@@ -1,0 +1,5 @@
+metrics.reporters : jmx_reporter
+metrics.reporter.jmx_reporter.class:
+org.apache.flink.metrics.jmx.JMXReporter
+metrics.reporter.jmx_reporter.host: XX.XX.XX.XX
+metrics.reporter.jmx_reporter.port: 8080-8082

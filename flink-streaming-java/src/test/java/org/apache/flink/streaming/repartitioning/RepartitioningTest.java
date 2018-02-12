@@ -26,8 +26,13 @@ import org.apache.flink.api.common.typeinfo.TypeHint;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.tuple.Tuple3;
+import org.apache.flink.configuration.ConfigConstants;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.configuration.GlobalConfiguration;
+import org.apache.flink.runtime.repartitioning.RedistributeStateHandler;
+import org.apache.flink.runtime.repartitioning.RedistributeStateHandler$;
 import org.apache.flink.streaming.api.CheckpointingMode;
+import org.apache.flink.streaming.api.environment.LocalStreamEnvironment;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
 import org.apache.flink.streaming.api.functions.source.SourceFunction;
@@ -41,16 +46,21 @@ import java.util.Random;
 public class RepartitioningTest {
 	@Test
 	public void test() throws Exception {
-		final long sleepTimeInMillis = 2;
-		final int parallelism = 10;
+		final int sleepTimeInMillis = 500000;
+		final int parallelism = 50;
+		RedistributeStateHandler$.MODULE$.setPartitions(parallelism);
 
-		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
+		GlobalConfiguration.loadConfiguration(System.getenv("FLINK_CONF_DIR"));
+		Configuration conf = GlobalConfiguration.getConfiguration();
+		conf.setBoolean(ConfigConstants.LOCAL_START_WEBSERVER, true);
+		final StreamExecutionEnvironment env = LocalStreamEnvironment.createLocalEnvironment(parallelism, conf);
 
 		env.enableCheckpointing(500, CheckpointingMode.EXACTLY_ONCE);
 		env.setParallelism(parallelism);
 
 		env.addSource(new SourceFunction<String>() {
-			protected Distribution distribution = Distribution.zeta(1, 1, 100000);
+			protected Distribution distribution = Distribution.zeta(1.5, 1000, 100000);
+			//protected Distribution distribution = Distribution.uniform(100000);
 
 			public boolean running = false;
 
@@ -61,7 +71,7 @@ public class RepartitioningTest {
 				while (running) {
 					String randomKey = Integer.toString(distribution.sample());
 					ctx.collect(randomKey);
-					Thread.sleep(sleepTimeInMillis);
+					Thread.sleep(0, sleepTimeInMillis);
 				}
 			}
 
@@ -118,7 +128,7 @@ public class RepartitioningTest {
 		.addSink(new RichSinkFunction<Tuple3<Integer, String, Integer>>() {
 			@Override
 			public void invoke(Tuple3<Integer, String, Integer> value) throws Exception {
-				System.out.println("taskID: " + value.f0 + " key: " + value.f1 + " count: " + value.f2);
+
 			}
 		});
 

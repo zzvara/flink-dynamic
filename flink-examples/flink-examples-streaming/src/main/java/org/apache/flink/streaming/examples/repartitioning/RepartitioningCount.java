@@ -26,6 +26,7 @@ import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.tuple.Tuple3;
 import org.apache.flink.configuration.Configuration;
+import org.apache.flink.runtime.repartitioning.RedistributeStateHandler$;
 import org.apache.flink.streaming.api.CheckpointingMode;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.streaming.api.functions.sink.RichSinkFunction;
@@ -38,8 +39,12 @@ import java.util.Random;
 
 public class RepartitioningCount {
 	public static void main(String[] args) throws Exception {
-		final long sleepTimeInMillis = 2;
-		final int parallelism = 10;
+		final long sleepTimeInMillis = Long.getLong(args[0]);
+		final int parallelism = Integer.getInteger(args[1]);
+		final int exponent = Integer.getInteger(args[2]);
+		final int shift = Integer.getInteger(args[3]);
+		final int width = Integer.getInteger(args[4]);
+		RedistributeStateHandler$.MODULE$.setPartitions(parallelism);
 
 		StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
 
@@ -48,7 +53,7 @@ public class RepartitioningCount {
 
 		env.addSource(new SourceFunction<String>() {
 
-			protected Distribution distribution = Distribution.zeta(1, 1, 100000);
+			protected Distribution distribution = Distribution.zeta(exponent, shift, width);
 
 			public boolean running = false;
 
@@ -116,7 +121,7 @@ public class RepartitioningCount {
 			.addSink(new RichSinkFunction<Tuple3<Integer, String, Integer>>() {
 				@Override
 				public void invoke(Tuple3<Integer, String, Integer> value) throws Exception {
-					System.out.println("taskID: " + value.f0 + " key: " + value.f1 + " count: " + value.f2);
+
 				}
 			});
 
