@@ -50,10 +50,7 @@ public class RepartitioningTest {
 		final int parallelism = 50;
 		RedistributeStateHandler$.MODULE$.setPartitions(parallelism);
 
-		GlobalConfiguration.loadConfiguration(System.getenv("FLINK_CONF_DIR"));
-		Configuration conf = GlobalConfiguration.getConfiguration();
-		conf.setBoolean(ConfigConstants.LOCAL_START_WEBSERVER, true);
-		final StreamExecutionEnvironment env = LocalStreamEnvironment.createLocalEnvironment(parallelism, conf);
+		final StreamExecutionEnvironment env = StreamExecutionEnvironment.createLocalEnvironment(parallelism);
 
 		env.enableCheckpointing(500, CheckpointingMode.EXACTLY_ONCE);
 		env.setParallelism(parallelism);
