@@ -39,7 +39,7 @@ import java.util.Random;
 
 public class RepartitioningCount {
 	public static void main(String[] args) throws Exception {
-		final long sleepTimeInMillis = Long.getLong(args[0]);
+		final int sleepTimeInNanos = Integer.getInteger(args[0]);
 		final int parallelism = Integer.getInteger(args[1]);
 		final int exponent = Integer.getInteger(args[2]);
 		final int shift = Integer.getInteger(args[3]);
@@ -52,7 +52,6 @@ public class RepartitioningCount {
 		env.setParallelism(parallelism);
 
 		env.addSource(new SourceFunction<String>() {
-
 			protected Distribution distribution = Distribution.zeta(exponent, shift, width);
 
 			public boolean running = false;
@@ -64,7 +63,7 @@ public class RepartitioningCount {
 				while (running) {
 					String randomKey = Integer.toString(distribution.sample());
 					ctx.collect(randomKey);
-					Thread.sleep(sleepTimeInMillis);
+					Thread.sleep(0, sleepTimeInNanos);
 				}
 			}
 
