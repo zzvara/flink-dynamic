@@ -70,6 +70,7 @@ public class FlinkYarnSessionCli implements CustomCommandLine<YarnClusterClient>
 
 	public static final String CONFIG_FILE_LOGBACK_NAME = "logback.xml";
 	public static final String CONFIG_FILE_LOG4J_NAME = "log4j.properties";
+	public static final String CONFIG_FILE_REPARTITIONING_NAME = "repartitioning.conf";
 
 	private static final int CLIENT_POLLING_INTERVALL = 3;
 

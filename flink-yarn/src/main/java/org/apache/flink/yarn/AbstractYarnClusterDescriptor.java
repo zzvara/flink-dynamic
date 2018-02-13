@@ -71,9 +71,7 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.apache.flink.configuration.ConfigConstants.ENV_FLINK_LIB_DIR;
-import static org.apache.flink.yarn.cli.FlinkYarnSessionCli.CONFIG_FILE_LOG4J_NAME;
-import static org.apache.flink.yarn.cli.FlinkYarnSessionCli.CONFIG_FILE_LOGBACK_NAME;
-import static org.apache.flink.yarn.cli.FlinkYarnSessionCli.getDynamicProperties;
+import static org.apache.flink.yarn.cli.FlinkYarnSessionCli.*;
 
 /**
  * The descriptor with deployment information for spwaning or resuming a {@link YarnClusterClient}.
@@ -542,6 +540,13 @@ public abstract class AbstractYarnClusterDescriptor implements ClusterDescriptor
 		if (hasLogback) {
 			effectiveShipFiles.add(logbackFile);
 		}
+
+		File repartitioningFile = new File(configurationDirectory + File.separator + CONFIG_FILE_REPARTITIONING_NAME);
+		final boolean hasRepartitioning = repartitioningFile.exists();
+		if (hasRepartitioning) {
+			effectiveShipFiles.add(repartitioningFile);
+		}
+
 
 		File log4jFile = new File(configurationDirectory + File.separator + CONFIG_FILE_LOG4J_NAME);
 		final boolean hasLog4j = log4jFile.exists();
