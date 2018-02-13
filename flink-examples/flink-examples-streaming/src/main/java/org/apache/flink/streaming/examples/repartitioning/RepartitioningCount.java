@@ -124,6 +124,6 @@ public class RepartitioningCount {
 				}
 			});
 
-		env.execute();
+		env.execute("RepartitioningCount");
 	}
 }
