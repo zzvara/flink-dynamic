@@ -43,6 +43,10 @@ class RedistributeStateHandler(
   private var allNewStateArrived: Boolean = false
   private var redistributedAll: Boolean = false
 
+  private var recordsHandled: Int = 0
+  private var recordsMigrated: Int = 0
+  private var t0: Long = 0
+
   private var localState: Option[mutable.HashMap[Any, Any]] = None
   private var allNewState: Option[mutable.HashMap[Any, Any]] = None
   private var partitioner: Option[Partitioner] = None
@@ -116,6 +120,7 @@ class RedistributeStateHandler(
 
   private def redistributeState(): Unit = {
     log.info(s"Redistributing from subtask $partition")
+    t0 = System.currentTimeMillis()
 
     val p = partitioner.get
     val states = stateAccessor.getState.asScala
@@ -125,8 +130,13 @@ class RedistributeStateHandler(
       val targetPartition = p.get(k)
 
       if (targetPartition == partition) {
+        // No migration
+        recordsHandled += 1
         local += k -> v
       } else {
+        // Migration
+        recordsHandled += 1
+        recordsMigrated += 1
         redistConnections(targetPartition).sendState(k, v)
       }
     }
@@ -176,6 +186,9 @@ class RedistributeStateHandler(
   }
 
   private def goOnProcessing(): Unit = {
+    masterRef ! RedistributionResult(partition, recordsHandled, recordsMigrated, System.currentTimeMillis() - t0)
+    log.info("Sent redistribution result")
+
     log.info(s"Going on with processing at subtask $partition")
 
     // swapping state at operator

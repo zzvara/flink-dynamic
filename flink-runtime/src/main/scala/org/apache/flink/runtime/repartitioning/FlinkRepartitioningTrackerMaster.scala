@@ -32,6 +32,7 @@ import org.apache.flink.runtime.messages.checkpoint.TriggerCheckpoint
 import org.apache.flink.runtime.repartitioning.network.{RedistributorAddress, RegisterTaskRedistributor, TaskRedistributorAddresses}
 
 import scala.collection.immutable.HashMap
+import scala.collection.mutable.ArrayBuffer
 
 class FlinkRepartitioningTrackerMaster(masterRef: ActorRef)
                                       (implicit ev1: ScannerFactory[FlinkThroughput],
@@ -41,6 +42,7 @@ class FlinkRepartitioningTrackerMaster(masterRef: ActorRef)
 
   var mockNumOfTotalSlots: Option[(Int, Int)] = None
   var vertexParallelisms: Option[Map[Int, Int]] = None
+  var redistributionResults = ArrayBuffer.empty[RedistributionResult]
 
   // TODO is volatile enough for syncing?
   @volatile
@@ -62,7 +64,18 @@ class FlinkRepartitioningTrackerMaster(masterRef: ActorRef)
   private var redistributorAddresses: Array[RedistributorAddress] = _
   private var numOfRegisteredAddrs = 0
 
+  def computeAndLogMigration(): Unit = {
+    println {
+      "MIGRATION: " +
+        (redistributionResults.map(_.recordsMigrated.toDouble).sum /
+          redistributionResults.map(_.recordsTotal.toDouble).sum)
+    }
+  }
+
   def registerRedistributor: PartialFunction[Any, Unit] = {
+    case r : RedistributionResult =>
+      redistributionResults += r
+      computeAndLogMigration()
     case RegisterTaskRedistributor(subtaskId, numOfSubtasks, addr) =>
       if (numPartitions < 0) {
         numPartitions = numOfSubtasks
@@ -126,15 +139,19 @@ class FlinkRepartitioningTrackerMaster(masterRef: ActorRef)
             s"using its parallelism (${vertexParallelisms.get(stageID)}) to " +
             s"mock number of total slots.")
           mockNumOfTotalSlots = Some(stageID, vertexParallelisms.get(stageID))
+          super.componentReceiveAndReply(context)(sws)
         } else if (mockNumOfTotalSlots.get._1 != stageID) {
           logError(s"Received histogram from vertex $stageID," +
             s"while another vertex is being monitor." +
             s"Currently monitoring only one vertex is supported in Flink" +
             s"dynamic repartitioning.")
+          /*
           throw new RuntimeException(
             s"Received histograms from multiple vertices." + s"This is not supported in Flink.")
+            */
+        } else {
+          super.componentReceiveAndReply(context)(sws)
         }
-        super.componentReceiveAndReply(context)(sws)
       }
     }
 
@@ -190,3 +207,5 @@ object FlinkRepartitioningTrackerMaster {
   }
 
 }
+
+case class RedistributionResult(subtaskId: Int, recordsTotal: Long, recordsMigrated: Long, totalTimeMs: Long)
