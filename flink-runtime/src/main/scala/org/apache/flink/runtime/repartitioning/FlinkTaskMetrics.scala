@@ -21,12 +21,12 @@ package org.apache.flink.runtime.repartitioning
 import hu.sztaki.drc.{Conceptier, Metrics, Sampling}
 import hu.sztaki.drc.partitioner.RepartitioningInfo
 
-class FlinkTaskMetrics extends Metrics[FlinkTaskMetrics] {
+class FlinkTaskMetrics extends Metrics[FlinkTaskMetrics] with Serializable {
 
   override var repartitioningInfo: Option[RepartitioningInfo[FlinkTaskMetrics]] = None
 
   // fixme place here data characteristics accum
-  private val dcAcc = new Conceptier {
+  private val dcAcc = new Conceptier with Serializable {
     override protected var HISTOGRAM_HARD_BOUNDARY = 100 // @todo FIXME
   }
 
