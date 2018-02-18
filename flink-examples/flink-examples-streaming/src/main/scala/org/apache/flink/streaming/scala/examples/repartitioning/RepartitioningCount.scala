@@ -70,7 +70,7 @@ object RepartitioningCount {
     .map(x => x)
     .setParallelism(parallelism)
     .addSink(
-      new RollingSink[String]("/development/dr-flink/repartitioning-count")
+      new RollingSink[String]("/development/dr-flink/repartitioning-count/" + System.currentTimeMillis() + "/")
         .setBatchSize(1000 * 1000 * 400)
         .setPendingPrefix("p")
         .setInProgressPrefix("p")
