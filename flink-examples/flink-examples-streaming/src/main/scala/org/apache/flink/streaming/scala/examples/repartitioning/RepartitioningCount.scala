@@ -12,6 +12,8 @@ import org.apache.flink.streaming.api.scala.StreamExecutionEnvironment
 import org.apache.flink.streaming.api.scala._
 import org.apache.flink.streaming.connectors.fs.RollingSink
 
+import scala.util.Try
+
 object RepartitioningCount {
   def main(args: Array[String]) {
     val parallelism = args(0).toInt
@@ -20,6 +22,7 @@ object RepartitioningCount {
     val shift = args(3).toDouble
     val width = args(4).toInt
     val complexity = args(5).toInt
+    val sleepNanos = Try(args(6).toInt).getOrElse(-1)
 
     RedistributeStateHandler.setPartitions(parallelism)
 
@@ -36,8 +39,15 @@ object RepartitioningCount {
       override def run(sourceContext: SourceFunction.SourceContext[String]) = {
         running = true
 
-        while (running) {
-          sourceContext.collect(distribution.sample().toString)
+        if (sleepNanos == -1) {
+          while (running) {
+            sourceContext.collect(distribution.sample().toString)
+          }
+        } else {
+          while (running) {
+            sourceContext.collect(distribution.sample().toString)
+            Thread.sleep(0, sleepNanos)
+          }
         }
       }
 
@@ -68,7 +78,7 @@ object RepartitioningCount {
           for(i <- 0 to complexity) {
             count.value() * math.random * i
           }
-          taskIndex.toString + "," + 1.toString + "," + System.currentTimeMillis().toString
+          taskIndex.toString + "," + System.currentTimeMillis().toString
         }
       })
       .setParallelism(parallelism)
@@ -76,7 +86,7 @@ object RepartitioningCount {
       .setParallelism(parallelism)
       .addSink(
         new RollingSink[String]("/development/dr-flink/repartitioning-count/" + System.currentTimeMillis() + "/")
-          .setBatchSize(1000 * 1000 * 400)
+          .setBatchSize(1000 * 1000 * 100)
           .setPendingPrefix("p")
           .setInProgressPrefix("p")
       )
