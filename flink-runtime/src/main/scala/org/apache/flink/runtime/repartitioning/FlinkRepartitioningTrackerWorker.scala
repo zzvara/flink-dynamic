@@ -101,12 +101,8 @@ extends RepartitioningTrackerWorker[FlinkMessageable, FlinkMessageable,
         super.componentReceive(x)
 
         // handling mapper side
-        for {
-          taskContext <- taskContextsByStageId.getOrElse(stageID, {
-            throw new RuntimeException(s"Tasks for stage $stageID should have been registered")
-          })
-        } yield {
-          taskContext.onNewPartitionerArrive(repartitioner, version)
+        taskContextsByStageId.get(stageID).toList.flatten.foreach {
+          _.onNewPartitionerArrive(repartitioner, version)
         }
 
         // handling reducer side
