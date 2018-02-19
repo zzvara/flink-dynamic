@@ -71,6 +71,7 @@ import org.apache.flink.runtime.messages.webmonitor._
 import org.apache.flink.runtime.metrics.{MetricRegistry => FlinkMetricRegistry}
 import org.apache.flink.runtime.metrics.groups.JobManagerMetricGroup
 import org.apache.flink.runtime.process.ProcessReaper
+// TODO this is the place where the strategy can be changed.
 import org.apache.flink.runtime.repartitioning.FlinkNaiveBatchStrategy._
 import org.apache.flink.runtime.repartitioning.{FlinkCallContext, FlinkMessageable, FlinkNaiveBatchStrategy, FlinkRepartitioningTrackerMaster, FlinkThroughput}
 import org.apache.flink.runtime.security.SecurityUtils
