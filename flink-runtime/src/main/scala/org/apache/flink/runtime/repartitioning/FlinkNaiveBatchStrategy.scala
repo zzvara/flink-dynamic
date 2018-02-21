@@ -22,6 +22,7 @@ import hu.sztaki.drc.{DeciderStrategy, StrategyFactory}
 import hu.sztaki.drc.component.RepartitioningTrackerMaster
 import hu.sztaki.drc.partitioner.Partitioner
 
+// TODO this is the strategy currently used
 class FlinkNaiveBatchStrategy(stageID: Int,
                               attemptID: Int,
                               numPartitions: Int,

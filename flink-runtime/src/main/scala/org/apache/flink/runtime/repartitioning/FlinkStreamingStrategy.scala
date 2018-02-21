@@ -21,6 +21,7 @@ package org.apache.flink.runtime.repartitioning
 //import hu.sztaki.drc.component.RepartitioningTrackerMaster
 //import hu.sztaki.drc.partitioner.Partitioner
 
+// TODO this was an attempt to use a streaming strategy
 class FlinkStreamingStrategy(stageID: Int,
                              attemptID: Int,
                              numPartitions: Int,
