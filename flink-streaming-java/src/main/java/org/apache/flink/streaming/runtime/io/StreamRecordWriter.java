@@ -60,6 +60,7 @@ public class StreamRecordWriter<T extends IOReadableWritable> extends RecordWrit
 
 	/** Runtime environment for repartitioning statistics */
 	private final Environment taskEnvironment;
+	private final FlinkTaskMetrics taskMetrics;
 
 	private final MaybeBufferingEmitter<T> emitter;
 
@@ -73,6 +74,7 @@ public class StreamRecordWriter<T extends IOReadableWritable> extends RecordWrit
 
 		super(writer, channelSelector);
 		this.taskEnvironment = taskEnvironment;
+		this.taskMetrics = taskEnvironment.getTaskContext().metrics();
 
 		checkArgument(timeout >= -1);
 
@@ -108,13 +110,12 @@ public class StreamRecordWriter<T extends IOReadableWritable> extends RecordWrit
 
 		// collecting key distribution statistics before emit (for repartitioning)
 		if (channelSelector instanceof HashPartitioner) {
-			KeySelector keySelector = ((HashPartitioner) channelSelector).keySelector;
-			Object recordInside =
-				((StreamRecord) ((SerializationDelegate) record).getInstance()).getValue();
 			try {
-				Object key = keySelector.getKey(recordInside);
-				FlinkTaskMetrics taskMetrics = taskEnvironment.getTaskContext().metrics();
-				taskMetrics.add(new Tuple2<Object, Object>(key, 1.0));
+				taskMetrics.add(
+					((HashPartitioner) channelSelector).keySelector.getKey(
+						((StreamRecord) ((SerializationDelegate) record).getInstance()).getValue()
+					)
+				);
 			} catch (Exception e) {
 				throw new RuntimeException("Could not extract key from " + record, e);
 			}

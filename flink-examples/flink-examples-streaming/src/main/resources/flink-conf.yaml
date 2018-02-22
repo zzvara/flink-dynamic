@@ -16,6 +16,10 @@
 # limitations under the License.
 ################################################################################
 
+metrics.reporters: my_jmx_reporter
+metrics.reporter.my_jmx_reporter.class: org.apache.flink.metrics.jmx.JMXReporter
+metrics.reporter.my_jmx_reporter.port: 9980-9999
+
 
 #==============================================================================
 # Common
@@ -45,7 +49,7 @@ taskmanager.heap.mb: 512
 
 # The number of task slots that each TaskManager offers. Each slot runs one parallel pipeline.
 
-taskmanager.numberOfTaskSlots: 1
+taskmanager.numberOfTaskSlots: 200
 
 # Specify whether TaskManager memory should be allocated when starting up (true) or when
 # memory is required in the memory manager (false)
@@ -98,7 +102,7 @@ jobmanager.web.port: 8081
 
 # The number of buffers for the network stack.
 #
-taskmanager.network.numberOfBuffers: 5000
+taskmanager.network.numberOfBuffers: 10000
 
 
 # Directories for temporary files.

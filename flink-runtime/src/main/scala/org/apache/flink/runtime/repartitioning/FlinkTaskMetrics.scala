@@ -32,7 +32,7 @@ class FlinkTaskMetrics extends Metrics[FlinkTaskMetrics] with Serializable {
   }
 
   // todo avoid sync?
-  def add(v: (Any, Double)): Unit =
+  def add(v: Any): Unit =
     dcAcc.add(v)
 
   // todo avoid sync?

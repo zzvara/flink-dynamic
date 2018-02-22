@@ -46,7 +46,6 @@ import java.util.Random;
 public class RepartitioningTest {
 	@Test
 	public void test() throws Exception {
-		final int sleepTimeInMillis = 500000;
 		final int parallelism = 50;
 		RedistributeStateHandler$.MODULE$.setPartitions(parallelism);
 
@@ -56,7 +55,7 @@ public class RepartitioningTest {
 		env.setParallelism(parallelism);
 
 		env.addSource(new SourceFunction<String>() {
-			protected Distribution distribution = Distribution.zeta(1.5, 1000, 100000);
+			protected Distribution distribution = Distribution.zeta(1.5, 5, 1000000);
 			//protected Distribution distribution = Distribution.uniform(100000);
 
 			public boolean running = false;
@@ -68,7 +67,7 @@ public class RepartitioningTest {
 				while (running) {
 					String randomKey = Integer.toString(distribution.sample());
 					ctx.collect(randomKey);
-					Thread.sleep(0, sleepTimeInMillis);
+					Thread.sleep(500);
 				}
 			}
 

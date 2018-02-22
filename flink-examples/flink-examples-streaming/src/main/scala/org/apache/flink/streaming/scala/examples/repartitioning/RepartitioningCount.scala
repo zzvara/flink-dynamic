@@ -4,10 +4,10 @@ import hu.sztaki.drc.utilities.Distribution
 import org.apache.flink.api.common.functions.RichMapFunction
 import org.apache.flink.api.common.state.{ValueState, ValueStateDescriptor}
 import org.apache.flink.api.common.typeinfo.{TypeHint, TypeInformation}
-import org.apache.flink.configuration.Configuration
+import org.apache.flink.configuration.{ConfigConstants, Configuration, GlobalConfiguration}
 import org.apache.flink.runtime.repartitioning.RedistributeStateHandler
 import org.apache.flink.streaming.api.functions.source.{ParallelSourceFunction, SourceFunction}
-import org.apache.flink.streaming.api.{CheckpointingMode, TimeCharacteristic}
+import org.apache.flink.streaming.api.{CheckpointingMode, TimeCharacteristic, environment}
 import org.apache.flink.streaming.api.scala.StreamExecutionEnvironment
 import org.apache.flink.streaming.api.scala._
 import org.apache.flink.streaming.connectors.fs.RollingSink
@@ -15,16 +15,21 @@ import org.apache.flink.streaming.connectors.fs.RollingSink
 import scala.util.Try
 
 object RepartitioningCount {
-  def main(args: Array[String]) {
-    val parallelism = args(0).toInt
+  def main(args: Array[String]) {val parallelism = args(0).toInt
     val sources = args(1).toInt
     val exponent = args(2).toDouble
     val shift = args(3).toDouble
     val width = args(4).toInt
     val complexity = args(5).toInt
-    val sleepNanos = Try(args(6).toInt).getOrElse(-1)
+    val sleepMillis = Try(args(6).toInt).getOrElse(-1)
+    val sleepNanos = Try(args(7).toInt).getOrElse(-1)
 
     RedistributeStateHandler.setPartitions(parallelism)
+
+    // GlobalConfiguration.loadConfiguration(System.getenv("FLINK_CONF_DIR"))
+    // val conf = GlobalConfiguration.getConfiguration
+    // conf.setBoolean(ConfigConstants.LOCAL_START_WEBSERVER, true)
+    // val env = new StreamExecutionEnvironment(new environment.LocalStreamEnvironment(conf))
 
     val env = StreamExecutionEnvironment.getExecutionEnvironment
     env.setStreamTimeCharacteristic(TimeCharacteristic.IngestionTime)
@@ -46,7 +51,7 @@ object RepartitioningCount {
         } else {
           while (running) {
             sourceContext.collect(distribution.sample().toString)
-            Thread.sleep(0, sleepNanos)
+            Thread.sleep(sleepMillis, sleepNanos)
           }
         }
       }
@@ -75,21 +80,20 @@ object RepartitioningCount {
 
         override def map(value: String) = {
           count.update(count.value() + 1)
-          for(i <- 0 to complexity) {
-            count.value() * math.random * i
+          if (complexity != -1) {
+            Thread.sleep(complexity)
           }
           taskIndex.toString + "," + System.currentTimeMillis().toString
         }
       })
-      .setParallelism(parallelism)
       .map(x => x)
-      .setParallelism(parallelism)
       .addSink(
         new RollingSink[String]("/development/dr-flink/repartitioning-count/" + System.currentTimeMillis() + "/")
           .setBatchSize(1000 * 1000 * 100)
           .setPendingPrefix("p")
           .setInProgressPrefix("p")
       )
+      .setParallelism(sources)
 
     env.execute("RepartitioningCount")
   }

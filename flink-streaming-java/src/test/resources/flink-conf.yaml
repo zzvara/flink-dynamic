@@ -2,4 +2,5 @@ metrics.reporters: my_jmx_reporter
 metrics.reporter.my_jmx_reporter.class: org.apache.flink.metrics.jmx.JMXReporter
 metrics.reporter.my_jmx_reporter.port: 9980-9999
 
-taskmanager.network.numberOfBuffers: 2048
+taskmanager.network.numberOfBuffers: 10000
+taskmanager.numberOfTaskSlots: 500
