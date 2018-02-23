@@ -28,12 +28,12 @@ object RepartitioningCount {
 
     RedistributeStateHandler.setPartitions(parallelism)
 
-    GlobalConfiguration.loadConfiguration(System.getenv("FLINK_CONF_DIR"))
-    val conf = GlobalConfiguration.getConfiguration
-    conf.setBoolean(ConfigConstants.LOCAL_START_WEBSERVER, true)
-    val env = new StreamExecutionEnvironment(new environment.LocalStreamEnvironment(conf))
+    // GlobalConfiguration.loadConfiguration(System.getenv("FLINK_CONF_DIR"))
+    // val conf = GlobalConfiguration.getConfiguration
+    // conf.setBoolean(ConfigConstants.LOCAL_START_WEBSERVER, true)
+    // val env = new StreamExecutionEnvironment(new environment.LocalStreamEnvironment(conf))
 
-    // val env = StreamExecutionEnvironment.getExecutionEnvironment
+    val env = StreamExecutionEnvironment.getExecutionEnvironment
     env.setStreamTimeCharacteristic(TimeCharacteristic.IngestionTime)
     env.enableCheckpointing(500, CheckpointingMode.EXACTLY_ONCE)
     env.setParallelism(parallelism)
