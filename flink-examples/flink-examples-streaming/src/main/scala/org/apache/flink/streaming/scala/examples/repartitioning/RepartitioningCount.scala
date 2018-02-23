@@ -12,7 +12,8 @@ import org.apache.flink.streaming.api.scala.StreamExecutionEnvironment
 import org.apache.flink.streaming.api.scala._
 import org.apache.flink.streaming.connectors.fs.RollingSink
 
-import scala.util.Try
+import scala.util.hashing.MurmurHash3
+import scala.util.{Random, Try}
 
 object RepartitioningCount {
   def main(args: Array[String]) {val parallelism = args(0).toInt
@@ -46,11 +47,17 @@ object RepartitioningCount {
 
         if (sleepNanos == -1) {
           while (running) {
-            sourceContext.collect(distribution.sample().toString)
+            sourceContext.collect(
+              MurmurHash3.stringHash(distribution.sample().toString, Random.nextInt(Int.MaxValue))
+                .toString
+            )
           }
         } else {
           while (running) {
-            sourceContext.collect(distribution.sample().toString)
+            sourceContext.collect(
+              MurmurHash3.stringHash(distribution.sample().toString, Random.nextInt(Int.MaxValue))
+                .toString
+            )
             Thread.sleep(sleepMillis, sleepNanos)
           }
         }
