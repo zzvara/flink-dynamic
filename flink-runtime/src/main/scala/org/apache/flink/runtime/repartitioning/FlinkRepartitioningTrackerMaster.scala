@@ -125,8 +125,9 @@ class FlinkRepartitioningTrackerMaster(masterRef: ActorRef)
   override def whenStageSubmitted(jobID: Int,
                                   stageID: Int,
                                   attemptID: Int,
+                                  parallelism: Int,
                                   repartitioningMode: Mode.Value): Unit =
-    super.whenStageSubmitted(jobID, stageID, attemptID, repartitioningMode)
+    super.whenStageSubmitted(jobID, stageID, attemptID, parallelism, repartitioningMode)
 
   override def componentReceiveAndReply(context: FlinkCallContext): PartialFunction[Any, Unit] = {
     val handleShuffleWriteStatus: PartialFunction[Any, Unit] = {

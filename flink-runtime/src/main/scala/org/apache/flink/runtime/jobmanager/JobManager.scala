@@ -1288,7 +1288,8 @@ class JobManager(
           val jobID = jobId.hashCode()
           val attemptID = 0
 
-          rtm.whenStageSubmitted(jobID, stageID, attemptID, Mode.ONLY_ONCE)
+          rtm.whenStageSubmitted(jobID, stageID, attemptID,
+            parallelismByVertex(stageID), Mode.ONLY_ONCE)
         }
       } catch {
         case t: Throwable =>
