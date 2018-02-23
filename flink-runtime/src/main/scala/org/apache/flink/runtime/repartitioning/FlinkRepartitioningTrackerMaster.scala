@@ -102,9 +102,6 @@ class FlinkRepartitioningTrackerMaster(masterRef: ActorRef)
 
   // ------------------------------------------------
 
-  /**
-    * @todo Why +1?
-    */
   override def getTotalSlots: Int = mockNumOfTotalSlots.map(_._2)
     .getOrElse {
       logError("Number of total slots have not been set, passing the default.")
