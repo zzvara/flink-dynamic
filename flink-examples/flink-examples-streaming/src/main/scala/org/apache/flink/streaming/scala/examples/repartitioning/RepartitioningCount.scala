@@ -37,6 +37,8 @@ object RepartitioningCount {
     env.enableCheckpointing(500, CheckpointingMode.EXACTLY_ONCE)
     env.setParallelism(parallelism)
 
+    val seed = Random.nextInt(Int.MaxValue)
+
     env.addSource(new ParallelSourceFunction[String] {
       @transient lazy val distribution = Distribution.zeta(exponent, shift, width)
 
@@ -48,14 +50,14 @@ object RepartitioningCount {
         if (sleepNanos == -1) {
           while (running) {
             sourceContext.collect(
-              MurmurHash3.stringHash(distribution.sample().toString, Random.nextInt(Int.MaxValue))
+              MurmurHash3.stringHash(distribution.sample().toString, seed)
                 .toString
             )
           }
         } else {
           while (running) {
             sourceContext.collect(
-              MurmurHash3.stringHash(distribution.sample().toString, Random.nextInt(Int.MaxValue))
+              MurmurHash3.stringHash(distribution.sample().toString, seed)
                 .toString
             )
             Thread.sleep(sleepMillis, sleepNanos)
