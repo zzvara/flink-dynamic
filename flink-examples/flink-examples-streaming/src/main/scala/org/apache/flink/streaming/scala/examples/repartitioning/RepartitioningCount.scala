@@ -24,16 +24,16 @@ object RepartitioningCount {
     val width = args(4).toInt
     val complexity = args(5).toInt
     val sleepMillis = Try(args(6).toInt).getOrElse(-1)
-    val sleepNanos = Try(args(7).toInt).getOrElse(-1)
+    val records = Try(args(7).toInt).getOrElse(1)
 
     RedistributeStateHandler.setPartitions(parallelism)
 
-    // GlobalConfiguration.loadConfiguration(System.getenv("FLINK_CONF_DIR"))
-    // val conf = GlobalConfiguration.getConfiguration
-    // conf.setBoolean(ConfigConstants.LOCAL_START_WEBSERVER, true)
-    // val env = new StreamExecutionEnvironment(new environment.LocalStreamEnvironment(conf))
+    GlobalConfiguration.loadConfiguration(System.getenv("FLINK_CONF_DIR"))
+    val conf = GlobalConfiguration.getConfiguration
+    conf.setBoolean(ConfigConstants.LOCAL_START_WEBSERVER, true)
+    val env = new StreamExecutionEnvironment(new environment.LocalStreamEnvironment(conf))
 
-    val env = StreamExecutionEnvironment.getExecutionEnvironment
+    // val env = StreamExecutionEnvironment.getExecutionEnvironment
     env.setStreamTimeCharacteristic(TimeCharacteristic.IngestionTime)
     env.enableCheckpointing(500, CheckpointingMode.EXACTLY_ONCE)
     env.setParallelism(parallelism)
@@ -48,21 +48,14 @@ object RepartitioningCount {
       override def run(sourceContext: SourceFunction.SourceContext[String]) = {
         running = true
 
-        if (sleepNanos == -1) {
-          while (running) {
+        while (running) {
+          for (_ <- 0 to records) {
             sourceContext.collect(
               MurmurHash3.stringHash(distribution.sample().toString, seed)
                 .toString
             )
           }
-        } else {
-          while (running) {
-            sourceContext.collect(
-              MurmurHash3.stringHash(distribution.sample().toString, seed)
-                .toString
-            )
-            Thread.sleep(sleepMillis, sleepNanos)
-          }
+          Thread.sleep(sleepMillis)
         }
       }
 
