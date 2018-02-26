@@ -30,9 +30,11 @@ import org.apache.flink.runtime.plugable.SerializationDelegate;
 import org.apache.flink.runtime.repartitioning.FlinkTaskMetrics;
 import org.apache.flink.runtime.repartitioning.MaybeBufferingEmitter;
 import org.apache.flink.runtime.repartitioning.RecordEmitter;
+import org.apache.flink.streaming.runtime.partitioner.ChangingHashPartitioner;
 import org.apache.flink.streaming.runtime.partitioner.HashPartitioner;
 import org.apache.flink.streaming.runtime.streamrecord.StreamRecord;
 import scala.Tuple2;
+import utils.partitioner.KeyIsolatorPartitioner;
 
 import static org.apache.flink.util.Preconditions.checkArgument;
 
@@ -109,15 +111,18 @@ public class StreamRecordWriter<T extends IOReadableWritable> extends RecordWrit
 		checkErroneous();
 
 		// collecting key distribution statistics before emit (for repartitioning)
-		if (channelSelector instanceof HashPartitioner) {
-			try {
-				taskMetrics.add(
-					((HashPartitioner) channelSelector).keySelector.getKey(
-						((StreamRecord) ((SerializationDelegate) record).getInstance()).getValue()
-					)
-				);
-			} catch (Exception e) {
-				throw new RuntimeException("Could not extract key from " + record, e);
+		if (channelSelector instanceof ChangingHashPartitioner) {
+			if (!(((ChangingHashPartitioner) channelSelector).partitioner instanceof
+				hu.sztaki.drc.partitioner.KeyIsolatorPartitioner)) {
+				try {
+					taskMetrics.add(
+						((HashPartitioner) channelSelector).keySelector.getKey(
+							((StreamRecord) ((SerializationDelegate) record).getInstance()).getValue()
+						)
+					);
+				} catch (Exception e) {
+					throw new RuntimeException("Could not extract key from " + record, e);
+				}
 			}
 		}
 

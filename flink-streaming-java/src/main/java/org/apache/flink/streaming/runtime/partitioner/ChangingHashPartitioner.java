@@ -26,7 +26,7 @@ import org.apache.flink.util.MathUtils;
 
 public class ChangingHashPartitioner<T> extends HashPartitioner<T> implements PartitionerChangeListener {
 
-	private Partitioner partitioner;
+	public Partitioner partitioner;
 
 	public ChangingHashPartitioner(final KeySelector<T, ?> keySelector, final int numPartitions) {
 		super(keySelector);
